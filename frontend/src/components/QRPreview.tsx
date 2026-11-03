@@ -16,23 +16,24 @@ interface Props {
   result: Result | null;
   stale: boolean;
   error: string | null;
+  busy: boolean;
   status: string;
   onDownload: () => void;
   onRegenerate: () => void;
 }
 
-export function QRPreview({ canvasRef, result, stale, error, status, onDownload, onRegenerate }: Props) {
+export function QRPreview({ canvasRef, result, stale, error, busy, status, onDownload, onRegenerate }: Props) {
   return (
     <section className="panel preview" aria-labelledby="preview-title">
       <h2 id="preview-title">Preview</h2>
-      <div className="stage">
+      <div className="qr-frame" aria-busy={busy}>
         {!result && (
           <div className="empty">
             <QrCode size={40} strokeWidth={1.25} aria-hidden="true" />
             <p>
-              <strong>Your QR code appears here.</strong>
+              <strong>{busy ? 'Generating…' : 'Your QR code appears here.'}</strong>
             </p>
-            <p>Enter text or a URL, adjust the style, then choose Generate.</p>
+            {!busy && <p>Enter text or a URL, adjust the style, then choose Generate.</p>}
           </div>
         )}
         <canvas

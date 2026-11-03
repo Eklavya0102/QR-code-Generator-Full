@@ -10,10 +10,10 @@ export interface QRSettings {
 export type LogoSource = CanvasImageSource & { width: number; height: number };
 
 export const ECL_INFO: Record<ECL, string> = {
-  L: 'L – about 7% recoverable',
-  M: 'M – about 15% recoverable',
-  Q: 'Q – about 25% recoverable',
-  H: 'H – about 30% recoverable',
+  L: 'L – 7% recovery',
+  M: 'M – 15% recovery',
+  Q: 'Q – 25% recovery',
+  H: 'H – 30% recovery',
 };
 export const LOGO_RATIO = 0.22; // longest logo edge as a share of the QR width
 

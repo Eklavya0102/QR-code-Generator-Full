@@ -6,9 +6,10 @@ interface Props {
   value: string;
   error: string | null;
   onChange: (v: string) => void;
+  onClear: () => void;
 }
 
-export function TextInputPanel({ mode, value, error, onChange }: Props) {
+export function TextInputPanel({ mode, value, error, onChange, onClear }: Props) {
   const id = useId();
   const errId = `${id}-err`;
   return (
@@ -31,6 +32,11 @@ export function TextInputPanel({ mode, value, error, onChange }: Props) {
           {value.length} / {MAX_TEXT_LENGTH}
         </span>
         {mode === 'url' && <span className="hint">WhatsApp invite links work too. The URL is encoded exactly as typed.</span>}
+        {value.length > 0 && (
+          <button type="button" className="link-btn" onClick={onClear}>
+            Clear text
+          </button>
+        )}
       </div>
       {error && (
         <p id={errId} className="msg error" role="alert">

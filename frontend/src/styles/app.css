@@ -102,3 +102,54 @@ textarea[aria-invalid='true'] { border-color: var(--terra); }
 }
 @media (max-width: 420px) { .grid2 { grid-template-columns: 1fr; gap: 0; } .actions .btn { flex: 1; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- Polish pass ---------- */
+.intro { padding: 2.25rem 0 0; }
+.intro h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); line-height: 1.2; margin-bottom: 0.5rem; }
+.intro p { color: var(--muted); max-width: 62ch; }
+.workspace { padding-top: 1.5rem; }
+.preview { background: var(--surface); }
+.panel + .panel { border-left-color: var(--border); }
+.link-btn { margin-left: auto; font: inherit; font-size: 0.8rem; color: var(--accent-dark); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.link-btn:hover { color: var(--terra); }
+.btn { min-height: 44px; }
+.seg { min-height: 36px; display: inline-flex; align-items: center; transition: background-color 0.15s, color 0.15s; }
+:is(textarea, select, input[type='text']) { transition: border-color 0.15s, box-shadow 0.15s; }
+:is(textarea, select, input[type='text']):hover { border-color: #cfcbc0; }
+:is(textarea, select, input[type='text']):focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--sage); outline: none; }
+.drop:hover { border-color: var(--accent); }
+
+/* Fixed-size, centered QR preview box.
+   The box is always square and never resizes with the QR content. The canvas keeps its full
+   export resolution (its width/height attributes) and is only scaled down by CSS to fit. */
+.qr-frame {
+  position: relative;
+  width: min(100%, 380px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.qr-frame .qr {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.qr-frame .qr[hidden] { display: none; }
+.qr-frame .empty { position: absolute; inset: 0; justify-content: center; align-content: center; margin: auto; padding: 1rem; }
+.facts { margin-top: 1.25rem; }

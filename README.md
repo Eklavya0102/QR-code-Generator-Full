@@ -10,6 +10,7 @@ A privacy-first QR code generator. Create QR codes from text or URLs, add an opt
 - Foreground/background colors with contrast and inversion warnings; identical colors are blocked
 - Error correction L/M/Q/H (switches to H automatically when a logo is added) and 512/1024/2048 px output
 - Live preview, stale-preview protection, PNG download with sanitized optional file name, reset
+- Fixed-size, square preview box: the QR is centered and scaled down by CSS only, so the downloaded PNG always keeps the full selected resolution (512/1024/2048 px)
 - Responsive, keyboard accessible, with ARIA alerts and status messages
 
 ## Screenshots
@@ -63,11 +64,18 @@ python -m pytest                    # backend + repo-level tests
 
 ## Deploying to Vercel
 
-1. Push the repo to GitHub and import it in Vercel with the **repository root** as the project root.
-2. `vercel.json` sets the install/build commands and `frontend/dist` as output. No framework preset or environment variables are required.
-3. `/api/*` requests are rewritten to `api/index.py` (Flask). Python dependencies come from the root `requirements.txt`.
+1. Push the repo to GitHub and import it in Vercel. Leave **Root Directory** as the repository root and **Framework Preset** as "Other" (`vercel.json` also sets `"framework": null`).
+2. No environment variables are required. Click Deploy.
+3. What `vercel.json` does:
+   - installs and builds the frontend (`cd frontend && npm ci` / `npm run build`) and serves `frontend/dist`;
+   - runs `api/index.py` as a Python Function. Vercel's documented Flask convention is an `app` instance at `api/index.py`, with dependencies in the root `requirements.txt`;
+   - rewrites `/api/*` to that function and keeps `frontend/`, `tests/` and `backend/tests/` out of the function bundle;
+   - sends security headers, including a strict Content-Security-Policy (same-origin scripts and connections only; `blob:` images for the logo preview and download).
+4. Node: use Node 20.19+ or 22 (Project Settings → General → Node.js Version) because Vite requires it.
+5. After deploying, open `https://<your-domain>/api/health`. It should return `{"status":"ok"}`.
 
-**Verification status:** the frontend build and the Python code are tested locally. The combined Vercel deployment (Python function plus rewrite) has **not been deployed or verified** from this environment. After your first deploy, open `/api/health`; it should return `{"status":"ok"}`. If Vercel's Python runtime handles the path differently on your account, see the current Vercel Flask docs. The frontend works without the API, so a static-only deploy is a safe fallback: remove the `rewrites` entry and `api/` folder.
+**Checked locally:** `vercel.json` is valid JSON; a clean `npm ci` + build produces `frontend/dist`; a fresh virtualenv built only from `requirements.txt` can import `api/index.py` and serve `/api/health` and `/api/qr`; the production build loads, generates and downloads under the exact CSP headers with no violations.
+**Not checked:** an actual Vercel deployment (this needs your account). If `/api/health` returns 404, confirm the repo root is the project root and see Vercel's Flask docs. The web app does not depend on the API. For a static-only deploy, delete `api/` and the `rewrites` and `functions` entries.
 
 ## Environment variables
 

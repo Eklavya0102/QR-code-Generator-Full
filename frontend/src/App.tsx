@@ -23,6 +23,7 @@ export default function App() {
   const [result, setResult] = useState<Result | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { logo, error: logoError, select, remove } = useLogo();
 
@@ -44,6 +45,7 @@ export default function App() {
     setStatus('');
     if (!validation.ok || colors.blocking || !canvasRef.current) return;
     const settings = { fg: options.fg, bg: options.bg, ecl: options.ecl, size: options.size };
+    setBusy(true);
     try {
       await renderQR(canvasRef.current, validation.value, settings, logo?.img);
       setResult({ signature, mode, settings, hasLogo: !!logo });
@@ -52,6 +54,8 @@ export default function App() {
     } catch (err) {
       setResult(null);
       setGenError(describeQRError(err));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -86,23 +90,44 @@ export default function App() {
   };
 
   const onSelectLogo = async (file: File) => {
+    const replacing = !!logo;
     const ok = await select(file);
-    if (ok && (options.ecl === 'L' || options.ecl === 'M')) patch({ ecl: 'H' });
+    if (!ok) return;
+    const raised = options.ecl === 'L' || options.ecl === 'M';
+    if (raised) patch({ ecl: 'H' });
+    setStatus(
+      `${replacing ? 'Logo replaced.' : 'Logo added.'}${raised ? ' Error correction raised to H.' : ''} Generate again to apply it.`,
+    );
+  };
+
+  const onRemoveLogo = () => {
+    remove();
+    setStatus('Logo removed. Generate again to apply the change.');
+  };
+
+  const clearText = () => {
+    setText('');
+    setGenError(null);
+    setStatus('');
   };
 
   return (
     <>
       <Header />
+      <div className="wrap intro">
+        <h2>Turn any text or link into a QR code</h2>
+        <p>Add your colors and an optional logo, check the preview, then download a full-resolution PNG. Everything happens in this tab.</p>
+      </div>
       <main className="wrap workspace">
         <section className="panel" aria-labelledby="input-title">
           <h2 id="input-title">Create</h2>
           <InputModeSelector mode={mode} onChange={(m) => { setMode(m); setGenError(null); }} />
-          <TextInputPanel mode={mode} value={text} error={inputError} onChange={(v) => { setText(v); setGenError(null); }} />
-          <ImageUpload logo={logo} error={logoError} onSelect={onSelectLogo} onRemove={remove} />
+          <TextInputPanel mode={mode} value={text} error={inputError} onChange={(v) => { setText(v); setGenError(null); }} onClear={clearText} />
+          <ImageUpload logo={logo} error={logoError} onSelect={onSelectLogo} onRemove={onRemoveLogo} />
           <QRCustomization options={options} blocking={colors.blocking} warnings={colors.warnings} hasLogo={!!logo} onChange={patch} />
           <div className="actions">
-            <button type="button" className="btn primary" onClick={generate} disabled={!canGenerate}>
-              <Sparkles size={16} aria-hidden="true" /> Generate QR code
+            <button type="button" className="btn primary" onClick={generate} disabled={!canGenerate || busy}>
+              <Sparkles size={16} aria-hidden="true" /> {busy ? 'Generating…' : 'Generate QR code'}
             </button>
             <button type="button" className="btn ghost" onClick={reset}>
               <RotateCcw size={16} aria-hidden="true" /> Reset
@@ -115,6 +140,7 @@ export default function App() {
           result={result}
           stale={stale}
           error={genError}
+          busy={busy}
           status={status}
           onDownload={download}
           onRegenerate={generate}

@@ -10,6 +10,15 @@ def test_vercel_config_is_valid_and_points_at_real_paths():
     assert (ROOT / "frontend" / "package.json").exists()
     assert (ROOT / "api" / "index.py").exists()
     assert any(r["source"].startswith("/api/") for r in cfg["rewrites"])
+    assert cfg["framework"] is None
+    assert (ROOT / "requirements.txt").exists()
+    assert (ROOT / "frontend" / "package-lock.json").exists()  # required by `npm ci`
+
+
+def test_security_headers_block_remote_connections():
+    cfg = json.loads((ROOT / "vercel.json").read_text())
+    csp = next(h["value"] for h in cfg["headers"][0]["headers"] if h["key"] == "Content-Security-Policy")
+    assert "connect-src 'self'" in csp and "script-src 'self'" in csp
 
 
 def test_frontend_never_calls_the_backend():
