@@ -1,116 +1,73 @@
 # QR Code Generator
 
-A privacy-first QR code generator. Create QR codes from text or URLs, add an optional logo, pick colors and error correction, preview, and download a PNG. **Generation happens entirely in your browser.**
+A privacy-first QR code generator that runs entirely in your browser. Create QR codes from text or URLs, add an optional logo, pick colors and error correction, preview, and download a PNG. There is no backend: nothing you enter is ever sent anywhere.
 
 ## Features
 
 - Text and URL modes (WhatsApp invite links work; URLs are encoded exactly as typed, including query and fragment)
-- URL validation without any network request. Allowed schemes: `http`, `https`, `mailto`, `tel`
-- Logo upload (PNG, JPEG, WebP, max exactly 1 MiB), type checked by file signature, scaled locally with a white backing
+- URL validation with no network request. Allowed schemes: `http`, `https`, `mailto`, `tel`
+- Logo upload (PNG, JPEG, WebP, max exactly 1 MiB), type-checked by file signature, scaled locally with a white backing
 - Foreground/background colors with contrast and inversion warnings; identical colors are blocked
-- Error correction L/M/Q/H (switches to H automatically when a logo is added) and 512/1024/2048 px output
-- Live preview, stale-preview protection, PNG download with sanitized optional file name, reset
-- Fixed-size, square preview box: the QR is centered and scaled down by CSS only, so the downloaded PNG always keeps the full selected resolution (512/1024/2048 px)
+- Error correction L/M/Q/H (switches to H when a logo is added) and 512/1024/2048 px output
+- Fixed-size, square preview box. The QR is centered and scaled down by CSS only, so the downloaded PNG always keeps the full selected resolution
+- PNG download with an optional sanitized file name, reset, stale-preview protection
 - Responsive, keyboard accessible, with ARIA alerts and status messages
+- Self-hosted fonts (Newsreader and Instrument Sans via Fontsource), so no font requests leave your domain
 
-## Screenshots
+## Technology
 
-_Placeholder: add `docs/screenshot-desktop.png` and `docs/screenshot-mobile.png`._
-
-## Technology stack
-
-React 19, Vite, TypeScript, [`qrcode`](https://www.npmjs.com/package/qrcode), Lucide React, plain CSS, Vitest + React Testing Library. Backend: Flask, `qrcode` + Pillow, Pytest. Deployment: Vercel.
+React 19, Vite, TypeScript, [`qrcode`](https://www.npmjs.com/package/qrcode), Lucide React, plain CSS, Vitest + React Testing Library.
 
 ## Project structure
 
 ```
-frontend/        React + Vite app (src/components, src/hooks, src/lib, src/styles)
-backend/         Flask app (app.py) and tests
-api/index.py     Vercel Python entry point that exposes backend/app.py
-tests/           Repo-level checks (vercel.json, "frontend never calls the API")
-requirements.txt / requirements-dev.txt   Python dependencies (single root set)
-vercel.json      Vercel build and routing config
+src/components/   Header, InputModeSelector, TextInputPanel, ImageUpload,
+                  QRCustomization, QRPreview, PrivacyNotice, Footer
+src/hooks/        useLogo (in-memory logo, object-URL cleanup)
+src/lib/          qr, validate, color, download (+ tests)
+src/styles/       app.css
+vercel.json       security headers (CSP etc.)
 ```
 
-## Prerequisites
+## Run it
 
-Node.js 20+ and npm, Python 3.11+.
-
-## Install
+Requires Node.js 20.19+ or 22.
 
 ```bash
-npm --prefix frontend ci            # or: cd frontend && npm install
-python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
+npm ci
+npm run dev        # http://localhost:5173
+npm test           # Vitest
+npm run typecheck
+npm run build      # typecheck + production build to dist/
+npm run preview    # serve the production build
 ```
 
-## Development
+## Deploy to Vercel
 
-```bash
-npm --prefix frontend run dev       # http://localhost:5173
-python backend/app.py               # optional API on http://127.0.0.1:5000 (debug off)
-```
+1. Push the repo to GitHub and import it in Vercel. Root directory `./`; Vercel detects **Vite** automatically (build `npm run build`, output `dist`).
+2. No environment variables are required. Deploy.
 
-The Vite dev server proxies `/api` to port 5000 for convenience. The app itself never calls it.
+`vercel.json` adds security headers: a Content-Security-Policy that only allows same-origin scripts, fonts and connections (plus `blob:` and `data:` images for the logo preview), `nosniff`, `no-referrer` and frame blocking.
 
-## Tests and build
-
-```bash
-npm --prefix frontend test          # Vitest
-npm --prefix frontend run typecheck # tsc --noEmit
-npm --prefix frontend run build     # typecheck + production build to frontend/dist
-python -m pytest                    # backend + repo-level tests
-```
-
-## Deploying to Vercel (multiple services)
-
-`vercel.json` uses Vercel **Services** to deploy two services as one project on one domain:
-
-| Service | Root | Framework | Public path |
-|---|---|---|---|
-| `frontend` | `frontend/` | Vite (builds with `npm run build`, serves `dist`) | everything except `/api/*` |
-| `app` | `.` (entry `api/index.py`) | Flask, deps from root `requirements.txt` | `/api/*` |
-
-Rewrites are ordered specific-first (`/api/(.*)` to `app`, then `/(.*)` to `frontend`). A service receives the original path, so the Flask routes are defined as `/api/health` and `/api/qr`. **No bindings are declared:** the web app never calls the API (that is the privacy design), and the API calls nothing. Security headers, including a strict CSP, stay at the top level.
-
-Steps: import the repo in Vercel (root directory `./`, preset **Services**), then deploy. No environment variables are needed. Use Node 20.19+ or 22. Afterwards open `/` and `/api/health` (expect `{"status":"ok"}`).
-
-**Checked locally:** `vercel dev -L` (the real services runtime) started both services; `/` returned the Vite app, `/api/health` returned `{"status":"ok"}` and `POST /api/qr` returned a PNG. Config tests pass.
-**Not checked:** an actual cloud deployment, and the CSP headers under `vercel dev` (they were tested separately against the production build with identical header values).
-
-To run locally: `npm i -g vercel`, then `vercel dev -L` from the repo root. Do not keep a separate `frontend/vercel.json`; the root one owns routing and headers.
-
-## Environment variables
-
-None are required. Optional: `VITE_REPO_URL` (build-time, public) shows a repository link in the footer. Never put secrets in `VITE_*` variables; they are exposed to the browser.
+Optional: set `VITE_REPO_URL` (build-time, public) to show a repository link in the footer.
 
 ## Privacy architecture
 
-- Text, URLs, logo images, previews and PNG files are created in the browser with Canvas and `Blob` APIs. **Nothing from this workflow is sent to Flask or any other server.** A repo test fails if frontend code contains `fetch(`, `XMLHttpRequest` or `/api/`.
-- No accounts, database, analytics, telemetry, third-party scripts, remote fonts or URL previews. User content is never written to localStorage, sessionStorage or IndexedDB (also checked by a test).
-- Logo object URLs are revoked on replace, remove, reset and unmount. Reset clears the app's state and the canvas.
-- **Optional API:** `POST /api/qr` (JSON: `data`, optional `error_correction`, `box_size`) returns a PNG for independent use. It is *not* used by the web app. If you call it yourself, your content does reach that server: it is processed in memory, never logged, stored or written to disk, and bodies are capped at 8 KB. `GET /api/health` is a plain health check.
-
-## Security limitations
-
-- The app clears its own transient state but cannot guarantee erasure from browser memory, downloads, screenshots, browser internals or OS caches.
-- A QR code can point anywhere. The app does not check whether a destination is safe.
-- No rate limiting on the optional API; add it before exposing it widely. CORS is not enabled (same-origin only).
+- QR codes, previews and PNG files are created in the browser with Canvas and `Blob` APIs.
+- No accounts, database, analytics, telemetry, third-party scripts, remote fonts or URL previews.
+- User content is never written to localStorage, sessionStorage, IndexedDB or cookies. Logo object URLs are revoked on replace, remove, reset and unmount.
+- A test (`src/lib/privacy.test.ts`) fails if source code adds network calls, storage APIs or remote resources, or if the CSP loses its same-origin rules.
+- The app clears its own state on reset but cannot guarantee erasure from browser memory, downloads, screenshots or OS caches.
 
 ## QR capacity and logo scannability
 
-- Capacity depends on error correction (maximum is roughly 2,900 bytes at level L down to roughly 1,270 at H). The UI limits input to 1,500 characters and shows an error if the library still cannot fit it.
+- Capacity falls as error correction rises. Input is limited to 1,500 characters and a clear error appears if the library still cannot fit it.
 - The logo takes at most 22% of the code width. Use Q or H with a logo, keep strong contrast, and test with real devices before printing. Scanning cannot be guaranteed in every condition.
 
 ## Troubleshooting
 
-- **Download did nothing:** check browser download permissions; the status message says "requested", not "completed".
+- **Download did nothing:** check browser download permissions. The status message says "requested", not "completed".
 - **Logo rejected:** the file must be a real PNG/JPEG/WebP of at most 1,048,576 bytes.
-- **`/api/health` 404 on Vercel:** confirm the repo root is the project root and `api/index.py` is present.
-
-## Future improvements
-
-SVG export (with a safe sanitizer), Wi-Fi/vCard presets, rounded module styles, a decode self-check after generation.
 
 ## License
 

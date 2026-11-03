@@ -46,6 +46,14 @@ describe('App', () => {
     expect(generateBtn()).toBeDisabled();
   });
 
+  it('renders a footer with privacy notes and no fabricated links', () => {
+    render(<App />);
+    const footer = screen.getByRole('contentinfo');
+    expect(footer).toHaveTextContent(/never uploaded/i);
+    expect(footer).toHaveTextContent(/MIT License/);
+    expect(footer.querySelectorAll('a')).toHaveLength(0);
+  });
+
   it('switches between text and URL mode', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('radio', { name: 'URL' }));

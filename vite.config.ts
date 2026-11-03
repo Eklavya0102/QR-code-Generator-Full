@@ -3,10 +3,6 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    // Dev convenience only. The app itself never calls /api in the QR workflow.
-    proxy: { '/api': 'http://127.0.0.1:5000' },
-  },
   test: {
     environment: 'jsdom',
     globals: true,
