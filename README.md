@@ -62,20 +62,23 @@ npm --prefix frontend run build     # typecheck + production build to frontend/d
 python -m pytest                    # backend + repo-level tests
 ```
 
-## Deploying to Vercel
+## Deploying to Vercel (multiple services)
 
-1. Push the repo to GitHub and import it in Vercel. Leave **Root Directory** as the repository root and **Framework Preset** as "Other" (`vercel.json` also sets `"framework": null`).
-2. No environment variables are required. Click Deploy.
-3. What `vercel.json` does:
-   - installs and builds the frontend (`cd frontend && npm ci` / `npm run build`) and serves `frontend/dist`;
-   - runs `api/index.py` as a Python Function. Vercel's documented Flask convention is an `app` instance at `api/index.py`, with dependencies in the root `requirements.txt`;
-   - rewrites `/api/*` to that function and keeps `frontend/`, `tests/` and `backend/tests/` out of the function bundle;
-   - sends security headers, including a strict Content-Security-Policy (same-origin scripts and connections only; `blob:` images for the logo preview and download).
-4. Node: use Node 20.19+ or 22 (Project Settings → General → Node.js Version) because Vite requires it.
-5. After deploying, open `https://<your-domain>/api/health`. It should return `{"status":"ok"}`.
+`vercel.json` uses Vercel **Services** to deploy two services as one project on one domain:
 
-**Checked locally:** `vercel.json` is valid JSON; a clean `npm ci` + build produces `frontend/dist`; a fresh virtualenv built only from `requirements.txt` can import `api/index.py` and serve `/api/health` and `/api/qr`; the production build loads, generates and downloads under the exact CSP headers with no violations.
-**Not checked:** an actual Vercel deployment (this needs your account). If `/api/health` returns 404, confirm the repo root is the project root and see Vercel's Flask docs. The web app does not depend on the API. For a static-only deploy, delete `api/` and the `rewrites` and `functions` entries.
+| Service | Root | Framework | Public path |
+|---|---|---|---|
+| `frontend` | `frontend/` | Vite (builds with `npm run build`, serves `dist`) | everything except `/api/*` |
+| `app` | `.` (entry `api/index.py`) | Flask, deps from root `requirements.txt` | `/api/*` |
+
+Rewrites are ordered specific-first (`/api/(.*)` to `app`, then `/(.*)` to `frontend`). A service receives the original path, so the Flask routes are defined as `/api/health` and `/api/qr`. **No bindings are declared:** the web app never calls the API (that is the privacy design), and the API calls nothing. Security headers, including a strict CSP, stay at the top level.
+
+Steps: import the repo in Vercel (root directory `./`, preset **Services**), then deploy. No environment variables are needed. Use Node 20.19+ or 22. Afterwards open `/` and `/api/health` (expect `{"status":"ok"}`).
+
+**Checked locally:** `vercel dev -L` (the real services runtime) started both services; `/` returned the Vite app, `/api/health` returned `{"status":"ok"}` and `POST /api/qr` returned a PNG. Config tests pass.
+**Not checked:** an actual cloud deployment, and the CSP headers under `vercel dev` (they were tested separately against the production build with identical header values).
+
+To run locally: `npm i -g vercel`, then `vercel dev -L` from the repo root. Do not keep a separate `frontend/vercel.json`; the root one owns routing and headers.
 
 ## Environment variables
 

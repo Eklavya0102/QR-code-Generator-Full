@@ -1,15 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "cd frontend && npm ci",
-  "buildCommand": "cd frontend && npm run build",
-  "outputDirectory": "frontend/dist",
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }],
-  "functions": {
-    "api/index.py": {
-      "excludeFiles": "{frontend/**,tests/**,backend/tests/**,docs/**}"
+  "services": {
+    "app": {
+      "root": ".",
+      "framework": "flask"
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite"
     }
   },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "app" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -4,15 +4,30 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
-def test_vercel_config_is_valid_and_points_at_real_paths():
+def test_vercel_services_config():
     cfg = json.loads((ROOT / "vercel.json").read_text())
-    assert cfg["outputDirectory"] == "frontend/dist"
-    assert (ROOT / "frontend" / "package.json").exists()
-    assert (ROOT / "api" / "index.py").exists()
-    assert any(r["source"].startswith("/api/") for r in cfg["rewrites"])
-    assert cfg["framework"] is None
-    assert (ROOT / "requirements.txt").exists()
-    assert (ROOT / "frontend" / "package-lock.json").exists()  # required by `npm ci`
+    services = cfg["services"]
+    assert set(services) == {"app", "frontend"}
+    assert services["app"]["framework"] == "flask" and services["frontend"]["framework"] == "vite"
+    # Build/runtime keys are not valid at the top level when `services` is present.
+    for key in ("functions", "installCommand", "buildCommand", "devCommand", "ignoreCommand", "outputDirectory", "framework"):
+        assert key not in cfg
+    # Specific /api rewrite first, catch-all last; both use the object form.
+    rewrites = cfg["rewrites"]
+    assert rewrites[0] == {"source": "/api/(.*)", "destination": {"service": "app"}}
+    assert rewrites[-1] == {"source": "/(.*)", "destination": {"service": "frontend"}}
+    # The frontend never calls the API, so no bindings are declared.
+    assert all("bindings" not in svc for svc in services.values())
+    assert (ROOT / "frontend" / "package-lock.json").exists()
+    assert (ROOT / "api" / "index.py").exists() and (ROOT / "requirements.txt").exists()
+
+
+def test_flask_routes_carry_the_public_api_prefix():
+    # Services receive the original path (/api/health), so routes must include /api.
+    from backend.app import create_app
+
+    paths = {r.rule for r in create_app().url_map.iter_rules()}
+    assert {"/api/health", "/api/qr"} <= paths
 
 
 def test_security_headers_block_remote_connections():
