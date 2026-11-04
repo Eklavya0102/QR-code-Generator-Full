@@ -31,13 +31,13 @@ export function TextInputPanel({ mode, value, error, onChange, onClear }: Props)
         <span className={value.length > MAX_TEXT_LENGTH ? 'count over' : 'count'}>
           {value.length} / {MAX_TEXT_LENGTH}
         </span>
-        {mode === 'url' && <span className="hint">WhatsApp invite links work too. The URL is encoded exactly as typed.</span>}
         {value.length > 0 && (
           <button type="button" className="link-btn" onClick={onClear}>
             Clear text
           </button>
         )}
       </div>
+      {mode === 'url' && <p className="hint">WhatsApp invite links work too. The URL is encoded exactly as typed.</p>}
       {error && (
         <p id={errId} className="msg error" role="alert">
           {error}

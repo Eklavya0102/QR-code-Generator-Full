@@ -24,6 +24,7 @@ export default function App() {
   const [genError, setGenError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const [logoNotice, setLogoNotice] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { logo, error: logoError, select, remove } = useLogo();
 
@@ -43,13 +44,14 @@ export default function App() {
 
   const generate = async () => {
     setStatus('');
-    if (!validation.ok || colors.blocking || !canvasRef.current) return;
+    if (!validation.ok || colors.blocking || !canvasRef.current || busy) return;
     const settings = { fg: options.fg, bg: options.bg, ecl: options.ecl, size: options.size };
     setBusy(true);
     try {
       await renderQR(canvasRef.current, validation.value, settings, logo?.img);
       setResult({ signature, mode, settings, hasLogo: !!logo });
       setGenError(null);
+      setLogoNotice('');
       setStatus('QR code generated.');
     } catch (err) {
       setResult(null);
@@ -80,6 +82,7 @@ export default function App() {
     setResult(null);
     setGenError(null);
     setStatus('');
+    setLogoNotice('');
     remove();
     const c = canvasRef.current;
     if (c) {
@@ -95,14 +98,14 @@ export default function App() {
     if (!ok) return;
     const raised = options.ecl === 'L' || options.ecl === 'M';
     if (raised) patch({ ecl: 'H' });
-    setStatus(
+    setLogoNotice(
       `${replacing ? 'Logo replaced.' : 'Logo added.'}${raised ? ' Error correction raised to H.' : ''} Generate again to apply it.`,
     );
   };
 
   const onRemoveLogo = () => {
     remove();
-    setStatus('Logo removed. Generate again to apply the change.');
+    setLogoNotice('Logo removed. Generate again to apply the change.');
   };
 
   const clearText = () => {
@@ -121,10 +124,14 @@ export default function App() {
       <main className="wrap workspace">
         <section className="panel" aria-labelledby="input-title">
           <h2 id="input-title">Create</h2>
-          <InputModeSelector mode={mode} onChange={(m) => { setMode(m); setGenError(null); }} />
-          <TextInputPanel mode={mode} value={text} error={inputError} onChange={(v) => { setText(v); setGenError(null); }} onClear={clearText} />
-          <ImageUpload logo={logo} error={logoError} onSelect={onSelectLogo} onRemove={onRemoveLogo} />
-          <QRCustomization options={options} blocking={colors.blocking} warnings={colors.warnings} hasLogo={!!logo} onChange={patch} />
+          <div className="group">
+            <h3>Content</h3>
+            <InputModeSelector mode={mode} onChange={(m) => { setMode(m); setGenError(null); }} />
+            <TextInputPanel mode={mode} value={text} error={inputError} onChange={(v) => { setText(v); setGenError(null); }} onClear={clearText} />
+          </div>
+          <QRCustomization options={options} blocking={colors.blocking} warnings={colors.warnings} hasLogo={!!logo} onChange={patch}>
+            <ImageUpload logo={logo} error={logoError} notice={logoNotice} onSelect={onSelectLogo} onRemove={onRemoveLogo} />
+          </QRCustomization>
           <div className="actions">
             <button type="button" className="btn primary" onClick={generate} disabled={!canGenerate || busy}>
               <Sparkles size={16} aria-hidden="true" /> {busy ? 'Generating…' : 'Generate QR code'}

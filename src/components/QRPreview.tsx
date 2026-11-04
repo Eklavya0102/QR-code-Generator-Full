@@ -1,8 +1,7 @@
 import type { RefObject } from 'react';
-import { Download, QrCode, RefreshCw } from 'lucide-react';
+import { CircleCheck, Download, QrCode, RefreshCw } from 'lucide-react';
 import { ECL_INFO, type QRSettings } from '../lib/qr';
 import type { Mode } from '../lib/validate';
-import { PrivacyNotice } from './PrivacyNotice';
 
 export interface Result {
   signature: string;
@@ -25,8 +24,26 @@ interface Props {
 export function QRPreview({ canvasRef, result, stale, error, busy, status, onDownload, onRegenerate }: Props) {
   return (
     <section className="panel preview" aria-labelledby="preview-title">
-      <h2 id="preview-title">Preview</h2>
-      <div className="qr-frame" aria-busy={busy}>
+      <div className="panel-head">
+        <h2 id="preview-title">Preview</h2>
+        {result && <span className={stale ? 'badge warn' : 'badge ok'}>{stale ? 'Out of date' : 'Up to date'}</span>}
+      </div>
+
+      {/*
+        Fixed preview box. The frame is always square and its size depends only on the available width,
+        never on the QR code. The canvas keeps its full export resolution (its width/height attributes,
+        which is what "Download PNG" exports) and is only scaled down visually inside the stage.
+      */}
+      <div className={result ? 'qr-frame' : 'qr-frame is-empty'} aria-busy={busy}>
+        <div className="qr-stage">
+          <canvas
+            ref={canvasRef}
+            hidden={!result}
+            className={stale ? 'qr stale' : 'qr'}
+            role="img"
+            aria-label="Generated QR code preview"
+          />
+        </div>
         {!result && (
           <div className="empty">
             <QrCode size={40} strokeWidth={1.25} aria-hidden="true" />
@@ -36,14 +53,8 @@ export function QRPreview({ canvasRef, result, stale, error, busy, status, onDow
             {!busy && <p>Enter text or a URL, adjust the style, then choose Generate.</p>}
           </div>
         )}
-        <canvas
-          ref={canvasRef}
-          hidden={!result}
-          className={stale ? 'qr stale' : 'qr'}
-          role="img"
-          aria-label="Generated QR code preview"
-        />
       </div>
+
       {result && (
         <>
           {stale && (
@@ -61,9 +72,9 @@ export function QRPreview({ canvasRef, result, stale, error, busy, status, onDow
               <dd>{ECL_INFO[result.settings.ecl].split(' – ')[0]}</dd>
             </div>
             <div>
-              <dt>Size</dt>
+              <dt>Download size</dt>
               <dd>
-                {result.settings.size} px
+                {result.settings.size} × {result.settings.size} px
               </dd>
             </div>
             <div>
@@ -73,8 +84,14 @@ export function QRPreview({ canvasRef, result, stale, error, busy, status, onDow
             <div>
               <dt>Colors</dt>
               <dd>
-                <span className="chip" style={{ background: result.settings.fg }} />
-                <span className="chip" style={{ background: result.settings.bg }} />
+                <span className="swatch">
+                  <span className="chip" style={{ background: result.settings.fg }} />
+                  {result.settings.fg}
+                </span>
+                <span className="swatch">
+                  <span className="chip" style={{ background: result.settings.bg }} />
+                  {result.settings.bg}
+                </span>
               </dd>
             </div>
           </dl>
@@ -82,7 +99,7 @@ export function QRPreview({ canvasRef, result, stale, error, busy, status, onDow
             <button type="button" className="btn primary" onClick={onDownload} disabled={stale}>
               <Download size={16} aria-hidden="true" /> Download PNG
             </button>
-            <button type="button" className="btn ghost" onClick={onRegenerate}>
+            <button type="button" className="btn ghost" onClick={onRegenerate} disabled={busy}>
               <RefreshCw size={16} aria-hidden="true" /> Regenerate
             </button>
           </div>
@@ -96,8 +113,11 @@ export function QRPreview({ canvasRef, result, stale, error, busy, status, onDow
       <p className="visually-hidden" role="status" aria-live="polite">
         {status}
       </p>
-      {status && <p className="msg ok" aria-hidden="true">{status}</p>}
-      <PrivacyNotice />
+      {status && (
+        <p className="msg ok with-icon" aria-hidden="true">
+          <CircleCheck size={16} /> {status}
+        </p>
+      )}
       <p className="msg muted">Always test a code with your own device before printing or sharing it. Scanning cannot be guaranteed in every condition.</p>
     </section>
   );

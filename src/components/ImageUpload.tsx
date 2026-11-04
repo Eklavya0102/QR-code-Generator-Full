@@ -1,15 +1,17 @@
 import { useRef, useState, type DragEvent } from 'react';
-import { ImagePlus, X } from 'lucide-react';
+import { CircleCheck, ImagePlus, X } from 'lucide-react';
 import type { Logo } from '../hooks/useLogo';
 
 interface Props {
   logo: Logo | null;
   error: string | null;
+  /** Confirmation shown after the logo is added, replaced or removed. */
+  notice?: string;
   onSelect: (file: File) => void;
   onRemove: () => void;
 }
 
-export function ImageUpload({ logo, error, onSelect, onRemove }: Props) {
+export function ImageUpload({ logo, error, notice, onSelect, onRemove }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
@@ -53,7 +55,7 @@ export function ImageUpload({ logo, error, onSelect, onRemove }: Props) {
           onDrop={onDrop}
         >
           <ImagePlus size={22} aria-hidden="true" />
-          <p>Drop an image here</p>
+          <p>Drop an image here, or</p>
           <button type="button" className="btn ghost" onClick={() => input.current?.click()}>
             Browse files
           </button>
@@ -72,6 +74,11 @@ export function ImageUpload({ logo, error, onSelect, onRemove }: Props) {
       {error && (
         <p className="msg error" role="alert">
           {error}
+        </p>
+      )}
+      {notice && (
+        <p className="msg ok with-icon" role="status">
+          <CircleCheck size={16} aria-hidden="true" /> {notice}
         </p>
       )}
       {logo && (
