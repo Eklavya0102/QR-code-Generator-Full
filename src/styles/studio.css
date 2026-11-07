@@ -1,0 +1,112 @@
+/* QR Decoration Studio. Loaded together with the studio chunk; reuses the tokens from app.css. */
+.studio { display: grid; gap: 1.25rem; padding: 1.25rem 0 2rem; }
+.studio-content { padding: 1rem 1.25rem 0.9rem; }
+.studio-content-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 1.25rem; align-items: start; }
+.studio-content textarea { min-height: 3.6rem; height: 3.6rem; }
+
+.studio-grid {
+  display: grid; gap: 1.25rem; align-items: start;
+  grid-template-columns: 168px minmax(0, 1fr) 340px;
+  grid-template-areas: 'nav stage controls';
+}
+.studio-nav { grid-area: nav; display: flex; flex-direction: column; gap: 0.2rem; position: sticky; top: 1rem; }
+.nav-btn { display: flex; align-items: center; gap: 0.6rem; width: 100%; font: inherit; font-weight: 500; font-size: 0.92rem; text-align: left; padding: 0.6rem 0.75rem; min-height: 44px; border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--muted); cursor: pointer; transition: background-color 0.15s, color 0.15s; }
+.nav-btn svg { flex: none; }
+.nav-btn:hover:not(.on) { background: var(--surface-sunk); color: var(--text); }
+.nav-btn.on { background: var(--accent-soft); color: var(--accent-dark); border-color: #cddac9; font-weight: 600; }
+
+/* Center stage: the preview box is square and keeps its size whatever the design, so nothing jumps between options. */
+.studio-stage { grid-area: stage; min-width: 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-panel); padding: 1.25rem; box-shadow: var(--shadow); }
+.studio-preview { position: relative; width: min(100%, 520px); aspect-ratio: 1 / 1; margin: 0 auto; overflow: hidden; background: #fff; border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.studio-preview.checker { background-color: #fff; background-image: conic-gradient(#e9e5da 25%, transparent 0 50%, #e9e5da 0 75%, transparent 0); background-size: 20px 20px; }
+.scene { position: absolute; inset: 8px; }
+.scene svg { display: block; width: 100%; height: 100%; }
+.studio-preview > .msg { position: absolute; inset: 1rem; margin: 0; }
+.sample-badge { position: absolute; top: 8px; left: 8px; font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; background: var(--surface-sunk); color: var(--muted); border: 1px solid var(--border); }
+.stage-note { text-align: center; margin: 0.5rem 0 0.7rem; }
+.preview-pin { background: var(--surface); }
+.export-link { display: block; margin: 0.5rem auto 0.9rem; }
+
+.scan-status { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem 0.8rem; background: var(--surface-sunk); margin-bottom: 0.9rem; }
+.scan-status.ok { background: var(--accent-soft); border-color: #cddac9; }
+.scan-status.fail { background: var(--terra-soft); border-color: #ecc9bc; }
+.scan-line { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.85rem; }
+.scan-line svg { flex: none; margin-top: 2px; }
+.scan-status.ok .scan-line { color: var(--accent-dark); }
+.scan-status.fail .scan-line { color: var(--terra-dark); }
+.scan-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin-top: 0.6rem; }
+.auto-check { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 500; color: var(--muted); cursor: pointer; }
+.advice { list-style: none; margin: 0 0 0.9rem; padding: 0; display: grid; gap: 0.4rem; }
+.advice li { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; padding: 0.45rem 0.65rem; border-radius: var(--radius); }
+.advice li svg { flex: none; margin-top: 2px; }
+.advice li.warn { background: var(--ochre-soft); color: var(--ochre-text); }
+.advice li.error { background: var(--terra-soft); color: var(--terra-dark); }
+.export { border-top: 1px solid var(--border); padding-top: 1rem; }
+.export h3 { margin-bottom: 0.7rem; }
+.btn.wide { width: 100%; }
+.btn.small { min-height: 36px; padding: 0.35rem 0.75rem; font-size: 0.85rem; }
+.spin { animation: studio-spin 0.9s linear infinite; }
+@keyframes studio-spin { to { transform: rotate(360deg); } }
+
+/* Right-hand contextual controls */
+.studio-controls { grid-area: controls; padding: 1.1rem; max-height: calc(100vh - 2rem); overflow-y: auto; position: sticky; top: 1rem; overscroll-behavior: contain; }
+.studio-controls h4 { font-family: var(--sans); font-size: 0.82rem; font-weight: 600; color: var(--muted); margin: 1.2rem 0 0.6rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.7rem; }
+.sec-head .link-btn { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; }
+.note { margin-bottom: 0.9rem; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 0.55rem; margin-bottom: 1rem; }
+.preset-tiles { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.logo-tiles { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 0.35rem 0.3rem 0.4rem; font: inherit; border: 1px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; min-width: 0; }
+.tile img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; display: block; border-radius: 6px; }
+.tile span { font-size: 0.72rem; font-weight: 500; color: var(--muted); text-align: center; line-height: 1.2; overflow-wrap: anywhere; }
+.tile:hover { border-color: var(--accent); }
+.tile.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), inset 0 0 0 1px var(--accent); }
+.tile.on span { color: var(--accent-dark); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.2rem 0 0.9rem; }
+.chip-btn { font: inherit; font-size: 0.78rem; font-weight: 500; padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--border-strong); background: #fff; color: var(--muted); cursor: pointer; transition: background-color 0.15s, color 0.15s, border-color 0.15s; }
+.chip-btn:hover:not(.on) { border-color: var(--accent); color: var(--text); }
+.chip-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.slider { margin-bottom: 0.85rem; }
+.slider-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+.slider-head output { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+input[type='range'] { width: 100%; accent-color: var(--accent); margin: 0.2rem 0 0; min-height: 24px; cursor: pointer; }
+input[type='number'] { width: 100%; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0.6rem 0.75rem; }
+input[type='number']:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+
+.toggle-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 1rem; }
+.toggle-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.switch { appearance: none; flex: none; position: relative; width: 40px; height: 22px; border-radius: 999px; background: var(--border-strong); cursor: pointer; transition: background-color 0.15s; margin: 0; }
+.switch::before { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.switch:checked { background: var(--accent); }
+.switch:checked::before { transform: translateX(18px); }
+
+.layer { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.65rem 0.8rem 0.1rem; margin-bottom: 0.6rem; background: #fff; }
+.layer.on { border-color: #cddac9; }
+.layer .toggle-row { margin-bottom: 0.55rem; }
+.layer-body { border-top: 1px solid var(--border); padding-top: 0.8rem; }
+.stops { display: grid; gap: 0.6rem; margin-bottom: 0.8rem; }
+.stop { position: relative; border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem 0.7rem 0.1rem; background: #fff; }
+.stop .icon-btn { position: absolute; top: 0.55rem; right: 0.6rem; width: 30px; height: 30px; }
+
+/* Keep the live preview and scan result in view while the controls are used. Sized so it fits short laptop screens. */
+@media (min-width: 761px) {
+  .preview-pin { position: sticky; top: 0.75rem; z-index: 2; }
+  .studio-preview { width: min(100%, 520px, max(240px, calc(100vh - 21rem))); }
+}
+@media (max-width: 1100px) {
+  .studio-grid { grid-template-columns: minmax(0, 1fr) 330px; grid-template-areas: 'nav nav' 'stage controls'; }
+  .studio-nav { position: static; flex-direction: row; overflow-x: auto; gap: 0.35rem; padding-bottom: 0.25rem; scrollbar-width: thin; }
+  .nav-btn { width: auto; white-space: nowrap; border-color: var(--border); background: var(--surface); }
+}
+@media (max-width: 760px) {
+  .studio-content-body { grid-template-columns: minmax(0, 1fr); }
+  .studio-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'nav' 'stage' 'controls'; }
+  .studio-controls { position: static; max-height: none; overflow: visible; }
+  .studio-stage { padding: 0.9rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
