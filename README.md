@@ -14,6 +14,12 @@ A privacy-first QR code generator that runs entirely in your browser. Create QR 
 - Responsive, keyboard accessible, with ARIA alerts and status messages
 - Self-hosted fonts (Newsreader and Instrument Sans via Fontsource), so no font requests leave your domain
 
+## Content types
+
+Besides **Text** and **URL**, the generator and the Studio build guided forms for **Wi-Fi** (escaped `WIFI:` string), **Email**, **Phone**, **SMS**, **WhatsApp** (`wa.me` link), **Contact** (vCard 3.0) and **Payment** (UPI and PayPal.me links). The format logic is in `src/lib/payloads.ts`.
+
+eSewa, Khalti and Fonepay merchant QR codes are issued by your bank or wallet and contain account data that cannot be generated here, so they are deliberately not offered as a builder. To restyle one, paste the text of your issued QR into **Text** mode; a pasted EMVCo payment payload has its checksum verified and you are warned if it does not match.
+
 ## Decoration Studio
 
 Open **Decoration Studio** (next to **Generator** under the page heading) to style a code without changing its data.
@@ -22,7 +28,8 @@ Open **Decoration Studio** (next to **Generator** under the page heading) to sty
 - **Frames**: 8 categories (26 templates) with editable text, colors, thickness, radius, padding, extra width/height, shadow, opacity and alignment.
 - **Borders, Corners, Modules, Colors, Decorations, Logos**: each category has its own **Reset**; **Templates > Reset all** clears every decoration.
 - **Export**: PNG, SVG, JPEG or PDF, 256 to 4096 px (longest side), optional transparent background. The file is drawn from the same SVG as the preview.
-- **Scan check**: decodes the rendered design with jsQR (loaded on demand) and reports success or failure. A pass is a good sign, not a guarantee, so always test with your own phone.
+- **Scan check**: decodes the rendered design with two independent decoders, jsQR and ZXing (both loaded on demand), and reports each result. Both reading it is a good sign; one is a warning; none is a failure. It is never a guarantee, so always test with your own phone.
+- **Fix scannability**: when the check or the advice finds a problem, this applies the least intrusive fixes first (contrast, error correction, spacing, logo size, finder and module shapes, gradient, then border and corners), re-checks after each change, stops at the first design both decoders read, and offers **Undo**. It never removes your logo, frame or text, and if it cannot help it changes nothing.
 
 Design notes: the QR matrix comes from the same `qrcode` library as the generator and is never edited. Frames, borders, corner brackets and decorations are drawn *outside* the code box and quiet zone. Settings live in `src/studio/` (types and defaults in `types.ts`, frame templates and presets in `data/`, the renderer in `lib/scene.ts`). Everything runs in the browser; no data leaves the tab.
 

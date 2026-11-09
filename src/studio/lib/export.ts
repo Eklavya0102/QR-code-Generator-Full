@@ -34,7 +34,8 @@ export async function renderToCanvas(input: SceneInput, longSide: number, fill: 
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  // willReadFrequently: the scan check reads these pixels back with two decoders
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Canvas is not available.');
   if (fill) {
     ctx.fillStyle = fill;

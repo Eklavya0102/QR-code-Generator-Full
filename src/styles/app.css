@@ -112,6 +112,7 @@ textarea[aria-invalid='true']:focus-visible { box-shadow: 0 0 0 3px var(--terra-
 
 /* Segmented controls (content type, error correction). */
 .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); padding: 3px; margin: 0 0 1.1rem; background: var(--surface-sunk); gap: 2px; }
+.segmented.wrap { display: flex; flex-wrap: wrap; width: 100%; }
 .segmented.fill { display: flex; margin: 0; }
 .segmented legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .seg { position: relative; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0.35rem 1.1rem; border-radius: var(--radius-sm); cursor: pointer; font-weight: 500; font-size: 0.92rem; color: var(--muted); transition: background-color 0.15s, color 0.15s; }
@@ -123,6 +124,22 @@ textarea[aria-invalid='true']:focus-visible { box-shadow: 0 0 0 3px var(--terra-
 .seg-main { font-weight: 600; font-size: 0.95rem; }
 .seg-sub { font-size: 0.72rem; opacity: 0.85; }
 .ecl .hint { margin-top: 0.1rem; }
+
+/* ---------- Content builders ---------- */
+.builder { display: grid; gap: 0; }
+.builder-summary { margin: -0.2rem 0 0.9rem; }
+.pw { display: flex; gap: 0.4rem; align-items: stretch; }
+.pw input { flex: 1; min-width: 0; }
+.pw .icon-btn { height: auto; min-height: 42px; }
+.check { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 500; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+input[type='email'], input[type='tel'], input[type='url'], input[type='password'] { width: 100%; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0.6rem 0.75rem; transition: border-color 0.15s, box-shadow 0.15s; }
+:is(input[type='email'], input[type='tel'], input[type='url'], input[type='password']):hover { border-color: #b9b29f; }
+:is(input[type='email'], input[type='tel'], input[type='url'], input[type='password']):focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+[aria-invalid='true'] { border-color: var(--terra) !important; }
+.encoded { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+.encoded summary { cursor: pointer; }
+.encoded code { display: block; margin-top: 0.4rem; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-sunk); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 9rem; overflow: auto; }
 
 /* ---------- Logo upload ---------- */
 .drop { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 1rem; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); background: var(--surface-sunk); color: var(--muted); text-align: center; transition: border-color 0.15s, background-color 0.15s; }

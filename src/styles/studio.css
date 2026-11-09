@@ -1,8 +1,12 @@
 /* QR Decoration Studio. Loaded together with the studio chunk; reuses the tokens from app.css. */
 .studio { display: grid; gap: 1.25rem; padding: 1.25rem 0 2rem; }
-.studio-content { padding: 1rem 1.25rem 0.9rem; }
-.studio-content-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 1.25rem; align-items: start; }
-.studio-content textarea { min-height: 3.6rem; height: 3.6rem; }
+.studio-content { padding: 0.85rem 1.25rem; }
+.studio-content-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.content-summary { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
+.content-summary strong { font-family: var(--serif); font-weight: 500; font-size: 1.1rem; white-space: nowrap; }
+.content-summary .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.studio-content-body { max-width: 760px; padding-top: 1rem; }
+.studio-content-body[hidden] { display: none; }
 
 .studio-grid {
   display: grid; gap: 1.25rem; align-items: start;
@@ -30,6 +34,23 @@
 .scan-status { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem 0.8rem; background: var(--surface-sunk); margin-bottom: 0.9rem; }
 .scan-status.ok { background: var(--accent-soft); border-color: #cddac9; }
 .scan-status.fail { background: var(--terra-soft); border-color: #ecc9bc; }
+.scan-status.warn { background: var(--ochre-soft); border-color: #e8dcc0; }
+.scan-status.warn .scan-line { color: var(--ochre-text); }
+.dec-list { list-style: none; margin: 0.55rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.dec { font-size: 0.74rem; font-weight: 600; padding: 0.12rem 0.55rem; border-radius: 999px; background: #fff; border: 1px solid var(--border-strong); color: var(--muted); }
+.dec.ok { color: var(--accent-dark); border-color: #cddac9; background: #f3f8f1; }
+.dec.bad { color: var(--terra-dark); border-color: #ecc9bc; background: #fff7f3; }
+.scan-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.fix-summary { border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0.65rem 0.85rem; background: #fff; margin: -0.3rem 0 0.9rem; font-size: 0.85rem; }
+.fix-summary.fixed { border-color: #cddac9; background: #f3f8f1; }
+.fix-summary.improved { border-color: #e8dcc0; background: var(--ochre-soft); }
+.fix-summary.unfixed { border-color: #ecc9bc; background: var(--terra-soft); }
+.fix-summary p { margin: 0; }
+.fix-changes { margin-top: 0.3rem; }
+.fix-changes summary { cursor: pointer; color: var(--muted); font-size: 0.8rem; }
+.fix-summary ul { margin: 0.35rem 0 0.1rem; padding-left: 1.1rem; display: grid; gap: 0.15rem; }
+.fix-actions { display: flex; align-items: center; gap: 0.9rem; margin-top: 0.45rem; }
+.fix-actions .link-btn { margin: 0; }
 .scan-line { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.85rem; }
 .scan-line svg { flex: none; margin-top: 2px; }
 .scan-status.ok .scan-line { color: var(--accent-dark); }
@@ -94,7 +115,8 @@ input[type='number']:focus-visible { border-color: var(--accent); box-shadow: 0 
 /* Keep the live preview and scan result in view while the controls are used. Sized so it fits short laptop screens. */
 @media (min-width: 761px) {
   .preview-pin { position: sticky; top: 0.75rem; z-index: 2; }
-  .studio-preview { width: min(100%, 520px, max(240px, calc(100vh - 21rem))); }
+  .studio-preview { width: min(100%, 520px, max(220px, calc(100vh - 24rem))); }
+  .has-report .studio-preview { width: min(100%, 520px, max(220px, calc(100vh - 29rem))); }
 }
 @media (max-width: 1100px) {
   .studio-grid { grid-template-columns: minmax(0, 1fr) 330px; grid-template-areas: 'nav nav' 'stage controls'; }
@@ -102,7 +124,7 @@ input[type='number']:focus-visible { border-color: var(--accent); box-shadow: 0 
   .nav-btn { width: auto; white-space: nowrap; border-color: var(--border); background: var(--surface); }
 }
 @media (max-width: 760px) {
-  .studio-content-body { grid-template-columns: minmax(0, 1fr); }
+  .content-summary .hint { display: none; }
   .studio-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'nav' 'stage' 'controls'; }
   .studio-controls { position: static; max-height: none; overflow: visible; }
   .studio-stage { padding: 0.9rem; }

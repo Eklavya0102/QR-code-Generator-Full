@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 import { Header } from './components/Header';
-import { InputModeSelector } from './components/InputModeSelector';
-import { TextInputPanel } from './components/TextInputPanel';
+import { ContentInput } from './components/ContentInput';
 import { ImageUpload } from './components/ImageUpload';
 import { QRCustomization, type Options } from './components/QRCustomization';
 import { QRPreview, type Result } from './components/QRPreview';
@@ -12,7 +11,8 @@ import { useLogo } from './hooks/useLogo';
 import { assessColors } from './lib/color';
 import { canvasToBlob, describeQRError, renderQR } from './lib/qr';
 import { downloadBlob } from './lib/download';
-import { sanitizeFilename, validateInput, type Mode } from './lib/validate';
+import { buildPayload, firstError, initialForms, isBuilderMode, type BuilderMode, type ContentMode, type Values } from './lib/payloads';
+import { sanitizeFilename, validateInput, type InputResult } from './lib/validate';
 import { useDecoration } from './studio/hooks/useDecoration';
 
 // The decoration studio is loaded on first use, so the plain generator stays as light as before.
@@ -21,7 +21,8 @@ const Studio = lazy(() => import('./studio/components/Studio'));
 const DEFAULTS: Options = { fg: '#1f2a1f', bg: '#ffffff', ecl: 'M', size: 1024, filename: '' };
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>('text');
+  const [mode, setMode] = useState<ContentMode>('text');
+  const [forms, setForms] = useState<Record<BuilderMode, Values>>(initialForms);
   const [text, setText] = useState('');
   const [options, setOptions] = useState<Options>(DEFAULTS);
   const [result, setResult] = useState<Result | null>(null);
@@ -44,12 +45,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logo, updateDeco]);
 
-  const validation = useMemo(() => validateInput(mode, text), [mode, text]);
+  // Text and URL use the text box; every other content type is built from a form.
+  const built = useMemo(() => (isBuilderMode(mode) ? buildPayload(mode, forms[mode]) : null), [mode, forms]);
+  const validation = useMemo<InputResult>(() => {
+    if (!built) return validateInput(mode === 'url' ? 'url' : 'text', text);
+    return built.ok ? { ok: true, value: built.value } : { ok: false, error: firstError(built) };
+  }, [built, mode, text]);
   const colors = useMemo(() => assessColors(options.fg, options.bg), [options.fg, options.bg]);
-  const inputError = text.length > 0 && !validation.ok ? validation.error : null;
+  const inputError = !built && text.length > 0 && !validation.ok ? validation.error : null;
+  const onForm = (m: BuilderMode, key: string, value: string) => {
+    setForms((f) => ({ ...f, [m]: { ...f[m], [key]: value } }));
+    setGenError(null);
+  };
   const canGenerate = validation.ok && !colors.blocking;
 
-  const signature = JSON.stringify([mode, text, options.fg, options.bg, options.ecl, options.size, logo?.id ?? null]);
+  const contentKey = built ? (validation.ok ? validation.value : JSON.stringify(forms[mode as BuilderMode])) : text;
+  const signature = JSON.stringify([mode, contentKey, options.fg, options.bg, options.ecl, options.size, logo?.id ?? null]);
   const stale = result !== null && result.signature !== signature;
 
   const patch = (p: Partial<Options>) => {
@@ -94,6 +105,7 @@ export default function App() {
   const reset = () => {
     setMode('text');
     setText('');
+    setForms(initialForms());
     setOptions(DEFAULTS);
     setResult(null);
     setGenError(null);
@@ -155,8 +167,17 @@ export default function App() {
           <h2 id="input-title">Create</h2>
           <div className="group">
             <h3>Content</h3>
-            <InputModeSelector mode={mode} onChange={(m) => { setMode(m); setGenError(null); }} />
-            <TextInputPanel mode={mode} value={text} error={inputError} onChange={(v) => { setText(v); setGenError(null); }} onClear={clearText} />
+            <ContentInput
+              mode={mode}
+              onMode={(m) => { setMode(m); setGenError(null); }}
+              text={text}
+              onText={(v) => { setText(v); setGenError(null); }}
+              onClearText={clearText}
+              textError={inputError}
+              forms={forms}
+              onForm={onForm}
+              built={built}
+            />
           </div>
           <QRCustomization options={options} blocking={colors.blocking} warnings={colors.warnings} hasLogo={!!logo} onChange={patch}>
             <ImageUpload logo={logo} error={logoError} notice={logoNotice} onSelect={onSelectLogo} onRemove={onRemoveLogo} />
@@ -191,6 +212,9 @@ export default function App() {
               text={text}
               onText={(v) => { setText(v); setGenError(null); }}
               onClearText={clearText}
+              forms={forms}
+              onForm={onForm}
+              built={built}
               payload={validation.ok ? validation.value : null}
               inputError={inputError}
               options={options}

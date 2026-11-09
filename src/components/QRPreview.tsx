@@ -1,11 +1,11 @@
 import type { RefObject } from 'react';
 import { CircleCheck, Download, QrCode, RefreshCw } from 'lucide-react';
 import { ECL_INFO, type QRSettings } from '../lib/qr';
-import type { Mode } from '../lib/validate';
+import { MODE_LABELS, type ContentMode } from '../lib/payloads';
 
 export interface Result {
   signature: string;
-  mode: Mode;
+  mode: ContentMode;
   settings: QRSettings;
   hasLogo: boolean;
 }
@@ -65,7 +65,7 @@ export function QRPreview({ canvasRef, result, stale, error, busy, status, onDow
           <dl className="facts">
             <div>
               <dt>Type</dt>
-              <dd>{result.mode === 'url' ? 'URL' : 'Text'}</dd>
+              <dd>{MODE_LABELS[result.mode]}</dd>
             </div>
             <div>
               <dt>Error correction</dt>
