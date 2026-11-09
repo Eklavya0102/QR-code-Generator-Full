@@ -83,11 +83,6 @@ Optional: set `VITE_REPO_URL` (build-time, public) to show a repository link in 
 - Capacity falls as error correction rises. Input is limited to 1,500 characters and a clear error appears if the library still cannot fit it.
 - The logo takes at most 22% of the code width. Use Q or H with a logo, keep strong contrast, and test with real devices before printing. Scanning cannot be guaranteed in every condition.
 
-## Troubleshooting
-
-- **Download did nothing:** check browser download permissions. The status message says "requested", not "completed".
-- **Logo rejected:** the file must be a real PNG/JPEG/WebP of at most 1,048,576 bytes.
-
 ## License
 
 MIT, see `LICENSE`.
