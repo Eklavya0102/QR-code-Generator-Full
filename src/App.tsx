@@ -233,3 +233,26 @@ export default function App() {
     </>
   );
 }
+
+
+
+//  <Studio
+//               mode={mode}
+//               onMode={(m) => { setMode(m); setGenError(null); }}
+//               text={text}
+//               onText={(v) => { setText(v); setGenError(null); }}
+//               onClearText={clearText}
+//               forms={forms}
+//               onForm={onForm}
+//               built={built}
+//               payload={validation.ok ? validation.value : null}
+//               inputError={inputError}
+//               options={options}
+//               onOptions={patch}
+//               logo={logo}
+//               logoError={logoError}
+//               logoNotice={logoNotice}
+//               onSelectLogo={onSelectLogo}
+//               onRemoveLogo={onRemoveLogo}
+//               deco={deco}
+//             />
