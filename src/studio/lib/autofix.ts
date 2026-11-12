@@ -4,7 +4,10 @@ import type { DecorationConfig } from '../types';
 import type { Matrix } from './matrix';
 import { buildScene, type SceneLogo } from './scene';
 
-/** The settings that decide whether a code scans. Everything else (frame, label, decorations) is left alone. */
+/**
+ * The decoration settings that decide whether a code scans. Everything else (frame, label, decorations) is left alone.
+ * `ecl` belongs to the generated QR and is never changed here; it is only read to size the logo safely.
+ */
 export interface FixState {
   cfg: DecorationConfig;
   fg: string;
@@ -74,16 +77,6 @@ export const FIX_STEPS: FixStep[] = [
         m.finderInner = darkenToContrast(m.finderInner, n.bg, 4.5) ?? m.finderInner;
       }
       return JSON.stringify([n.fg, n.bg, n.cfg.gradient.stops, m.finderOuter, m.finderInner]) === JSON.stringify([s.fg, s.bg, s.cfg.gradient.stops, s.cfg.modules.finderOuter, s.cfg.modules.finderInner]) ? null : n;
-    },
-  },
-  {
-    id: 'ecl',
-    label: 'Raised error correction so the code can recover from the logo',
-    apply(s) {
-      const hasLogo = s.cfg.logo.source !== 'none';
-      if (hasLogo && (s.ecl === 'L' || s.ecl === 'M')) return { ...clone(s), ecl: 'H' };
-      if (s.ecl === 'L') return { ...clone(s), ecl: 'M' };
-      return null;
     },
   },
   {

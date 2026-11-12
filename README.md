@@ -20,18 +20,20 @@ Besides **Text** and **URL**, the generator and the Studio build guided forms fo
 
 eSewa, Khalti and Fonepay merchant QR codes are issued by your bank or wallet and contain account data that cannot be generated here, so they are deliberately not offered as a builder. To restyle one, paste the text of your issued QR into **Text** mode; a pasted EMVCo payment payload has its checksum verified and you are warned if it does not match.
 
-## Decoration Studio
+## Two steps: Generate, then Decorate
 
-Open **Decoration Studio** (next to **Generator** under the page heading) to style a code without changing its data.
+The app is a clean two-step workflow: **User input > Generate QR > Original QR > Decorate QR > Final QR > Download.**
 
-- **Templates**: 15 ready-made designs. Pick one, then change anything.
-- **Frames**: 8 categories (26 templates) with editable text, colors, thickness, radius, padding, extra width/height, shadow, opacity and alignment.
-- **Borders, Corners, Modules, Colors, Decorations, Logos**: each category has its own **Reset**; **Templates > Reset all** clears every decoration.
-- **Export**: PNG, SVG, JPEG or PDF, 256 to 4096 px (longest side), optional transparent background. The file is drawn from the same SVG as the preview.
-- **Scan check**: decodes the rendered design with two independent decoders, jsQR and ZXing (both loaded on demand), and reports each result. Both reading it is a good sign; one is a warning; none is a failure. It is never a guarantee, so always test with your own phone.
-- **Fix scannability**: when the check or the advice finds a problem, this applies the least intrusive fixes first (contrast, error correction, spacing, logo size, finder and module shapes, gradient, then border and corners), re-checks after each change, stops at the first design both decoders read, and offers **Undo**. It never removes your logo, frame or text, and if it cannot help it changes nothing.
+**Step 1, Generate QR.** Enter your content (Text, URL or any builder), choose colors, error correction, size and an optional logo, and generate. This is the only place a QR code is created. When it succeeds, the original QR is handed to step 2, and **Decorate this QR** takes you there. The original PNG download is unchanged.
 
-Design notes: the QR matrix comes from the same `qrcode` library as the generator and is never edited. Frames, borders, corner brackets and decorations are drawn *outside* the code box and quiet zone. Settings live in `src/studio/` (types and defaults in `types.ts`, frame templates and presets in `data/`, the renderer in `lib/scene.ts`). Everything runs in the browser; no data leaves the tab.
+**Step 2, Decorate QR.** The decorator receives the generated QR; it has no content input and never creates a QR of its own. Its content and error correction are locked and shown in the "Your QR from step 1" card. If you open step 2 before generating, you see "No QR code available. Please generate a QR code first." with a button back to step 1.
+
+- **Live preview** at the top updates as you change anything; the scan check (jsQR and ZXing) runs on it and **Fix scannability** repairs design problems with an **Undo**.
+- **Templates, Frames, Borders, Corners, Modules, Colors, Decorations, Logos**: each category has its own **Reset**; **Templates > Reset all** returns to the plain received QR. Logos can come from step 1, your own upload here, or the built-in set.
+- **Generate Final QR** (below the preview and controls) renders the design, checks it with both decoders and unlocks **Download** (PNG, SVG, JPEG or PDF, 256 to 4096 px, transparent background optional). If you change the design afterwards, the final is marked out of date until you update it.
+- A logo needs error correction Q or H. Because error correction belongs to step 1, the decorator offers a one-click **Raise to H**, which asks step 1 to regenerate the *same data* at the higher level. Nothing else about the content changes.
+
+Where things live: `src/App.tsx` (the only place a QR is generated, and the hand-off), `src/lib/generated.ts` (the frozen `GeneratedQR` snapshot), `src/studio/` (the decorator: `types.ts`, `data/`, `lib/scene.ts` renderer, `components/`). Everything runs in the browser; no data leaves the tab.
 
 ## Technology
 
@@ -82,6 +84,11 @@ Optional: set `VITE_REPO_URL` (build-time, public) to show a repository link in 
 
 - Capacity falls as error correction rises. Input is limited to 1,500 characters and a clear error appears if the library still cannot fit it.
 - The logo takes at most 22% of the code width. Use Q or H with a logo, keep strong contrast, and test with real devices before printing. Scanning cannot be guaranteed in every condition.
+
+## Troubleshooting
+
+- **Download did nothing:** check browser download permissions. The status message says "requested", not "completed".
+- **Logo rejected:** the file must be a real PNG/JPEG/WebP of at most 1,048,576 bytes.
 
 ## License
 

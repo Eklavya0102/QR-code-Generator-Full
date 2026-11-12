@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { CircleCheck, Download, QrCode, RefreshCw } from 'lucide-react';
+import { ArrowRight, CircleCheck, Download, QrCode, RefreshCw } from 'lucide-react';
 import { ECL_INFO, type QRSettings } from '../lib/qr';
 import { MODE_LABELS, type ContentMode } from '../lib/payloads';
 
@@ -19,9 +19,11 @@ interface Props {
   status: string;
   onDownload: () => void;
   onRegenerate: () => void;
+  /** Hands the generated QR to step 2. */
+  onDecorate?: () => void;
 }
 
-export function QRPreview({ canvasRef, result, stale, error, busy, status, onDownload, onRegenerate }: Props) {
+export function QRPreview({ canvasRef, result, stale, error, busy, status, onDownload, onRegenerate, onDecorate }: Props) {
   return (
     <section className="panel preview" aria-labelledby="preview-title">
       <div className="panel-head">
@@ -103,6 +105,11 @@ export function QRPreview({ canvasRef, result, stale, error, busy, status, onDow
               <RefreshCw size={16} aria-hidden="true" /> Regenerate
             </button>
           </div>
+          {onDecorate && (
+            <button type="button" className="btn ghost wide next-step" onClick={onDecorate} disabled={stale}>
+              Decorate this QR <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          )}
         </>
       )}
       {error && (

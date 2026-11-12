@@ -1,12 +1,5 @@
 /* QR Decoration Studio. Loaded together with the studio chunk; reuses the tokens from app.css. */
 .studio { display: grid; gap: 1.25rem; padding: 1.25rem 0 2rem; }
-.studio-content { padding: 0.85rem 1.25rem; }
-.studio-content-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.content-summary { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
-.content-summary strong { font-family: var(--serif); font-weight: 500; font-size: 1.1rem; white-space: nowrap; }
-.content-summary .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.studio-content-body { max-width: 760px; padding-top: 1rem; }
-.studio-content-body[hidden] { display: none; }
 
 .studio-grid {
   display: grid; gap: 1.25rem; align-items: start;
@@ -29,7 +22,9 @@
 .sample-badge { position: absolute; top: 8px; left: 8px; font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; background: var(--surface-sunk); color: var(--muted); border: 1px solid var(--border); }
 .stage-note { text-align: center; margin: 0.5rem 0 0.7rem; }
 .preview-pin { background: var(--surface); }
-.export-link { display: block; margin: 0.5rem auto 0.9rem; }
+.export-link { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0.4rem auto 0.9rem; }
+.studio-stage { text-align: center; }
+.studio-stage .scan-status, .studio-stage .fix-summary, .studio-stage .advice, .studio-stage .ecl-note { text-align: left; }
 
 .scan-status { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem 0.8rem; background: var(--surface-sunk); margin-bottom: 0.9rem; }
 .scan-status.ok { background: var(--accent-soft); border-color: #cddac9; }
@@ -124,11 +119,42 @@ input[type='number']:focus-visible { border-color: var(--accent); box-shadow: 0 
   .nav-btn { width: auto; white-space: nowrap; border-color: var(--border); background: var(--surface); }
 }
 @media (max-width: 760px) {
-  .content-summary .hint { display: none; }
   .studio-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'nav' 'stage' 'controls'; }
   .studio-controls { position: static; max-height: none; overflow: visible; }
   .studio-stage { padding: 0.9rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .spin { animation: none; }
+}
+
+/* ---------- Original QR card, empty state, final panel ---------- */
+.original-card { display: flex; align-items: center; gap: 1rem; padding: 0.8rem 1rem; }
+.original-card img { flex: none; width: 72px; height: 72px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: #fff; image-rendering: auto; }
+.original-text { flex: 1; min-width: 0; display: grid; gap: 0.1rem; }
+.original-title { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.original-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.no-qr { display: grid; justify-items: center; gap: 0.6rem; padding: 2.5rem 1.5rem; text-align: center; }
+.no-qr > svg { color: var(--accent); }
+.no-qr p { color: var(--muted); max-width: 40ch; margin-bottom: 0.4rem; }
+.ecl-note { border: 1px solid #e8dcc0; background: var(--ochre-soft); color: var(--ochre-text); border-radius: var(--radius); padding: 0.6rem 0.8rem; margin-bottom: 0.9rem; font-size: 0.82rem; display: grid; gap: 0.5rem; justify-items: start; }
+.ecl-note p { display: flex; gap: 0.5rem; align-items: flex-start; }
+.ecl-note svg { flex: none; margin-top: 2px; }
+
+.final-layout { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.final-box { position: relative; width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center; overflow: hidden; background: #fff; border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.final-box.checker { background-image: conic-gradient(#e9e5da 25%, transparent 0 50%, #e9e5da 0 75%, transparent 0); background-size: 20px 20px; }
+.final-box img { display: block; width: 100%; height: 100%; object-fit: contain; padding: 8px; }
+.final-box img.stale { opacity: 0.35; }
+.final-empty { color: var(--muted); font-size: 0.9rem; padding: 1rem; text-align: center; }
+.final-controls { display: grid; gap: 0.6rem; min-width: 0; }
+.final-controls h3 { margin-top: 0.6rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+.final-controls .msg { margin: 0; }
+.final-check { display: grid; gap: 0.5rem; }
+.btn.big { min-height: 52px; font-size: 1rem; }
+.btn.wide.big { width: 100%; }
+@media (max-width: 760px) {
+  .final-layout { grid-template-columns: minmax(0, 1fr); }
+  .final-box { max-width: 380px; margin: 0 auto; }
+  .original-card { flex-wrap: wrap; }
+  .original-card .btn { width: 100%; }
 }

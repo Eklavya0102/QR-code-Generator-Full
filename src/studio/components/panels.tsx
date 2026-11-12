@@ -191,19 +191,22 @@ export function ModulesPanel({ cfg, update, reset }: P) {
   );
 }
 
-export function ColorsPanel({ cfg, update, reset, fg, bg, onColors }: P & { fg: string; bg: string; onColors: (p: { fg?: string; bg?: string }) => void }) {
+export function ColorsPanel({ cfg, update, reset, fg, bg, onColors, onResetColors, transparent, onTransparent }: P & {
+  fg: string; bg: string; onColors: (p: { fg?: string; bg?: string }) => void; onResetColors: () => void; transparent: boolean; onTransparent: (v: boolean) => void;
+}) {
   const g = cfg.gradient;
   const set = (patch: Partial<typeof g>) => update('gradient', patch);
   const setStop = (i: number, patch: Partial<(typeof g.stops)[number]>) => set({ stops: g.stops.map((s, k) => (k === i ? { ...s, ...patch } : s)) });
   const first = g.enabled ? g.stops[0]?.color ?? fg : fg;
   return (
     <>
-      <SectionHead title="Colors" onReset={() => reset('gradient')} resetLabel="Reset gradient" />
+      <SectionHead title="Colors" onReset={() => { reset('gradient'); onResetColors(); onTransparent(false); }} />
       <div className="grid2">
         <ColorField label="Foreground" value={fg} onChange={(v) => onColors({ fg: v })} />
         <ColorField label="Background" value={bg} onChange={(v) => onColors({ bg: v })} />
       </div>
       <p className="hint">Contrast {contrastRatio(first, bg).toFixed(1)}:1. Aim for 4:1 or more.</p>
+      <Toggle label="Transparent background" checked={transparent} onChange={onTransparent} hint="Removes the frame and code backgrounds. JPEG and PDF fill it with white." />
       <Toggle label="Gradient foreground" checked={g.enabled} onChange={(v) => set({ enabled: v })} hint="Keep every stop dark enough against the background." />
       {g.enabled && (
         <>
@@ -275,37 +278,39 @@ export function DecorationsPanel({ cfg, update, reset }: P) {
   );
 }
 
-export function LogosPanel({ cfg, update, reset, logo, logoError, logoNotice, onSelectLogo, onRemoveLogo, ecl, onEcl, onPickBuiltIn }: P & {
+export function LogosPanel({ cfg, update, reset, original, logo, logoError, logoNotice, onSelectLogo, onRemoveLogo, ecl, onRaiseEcl, onPickBuiltIn }: P & {
+  /** The logo that was applied in the Generator, if any. */
+  original: { href: string; name: string } | null;
+  /** A logo uploaded here in the Decorator. */
   logo: Logo | null; logoError: string | null; logoNotice: string; onSelectLogo: (f: File) => void | Promise<void>; onRemoveLogo: () => void;
-  ecl: ECL; onEcl: (v: ECL) => void; onPickBuiltIn: (id: string, color: string) => void;
+  ecl: ECL; onRaiseEcl?: (ecl: ECL) => void; onPickBuiltIn: (id: string, color: string) => void;
 }) {
   const l = cfg.logo;
   const set = (patch: Partial<typeof l>) => update('logo', patch);
   const builtIn = BUILT_IN_LOGOS.some((b) => b.id === l.source);
+  const lowEcl = ecl === 'L' || ecl === 'M';
   return (
     <>
       <SectionHead title="Logos" onReset={() => reset('logo')} />
-      <Notes>A logo hides part of the code. Use error correction Q or H and keep the logo small. The built-in tiles are simple generic glyphs, not official brand artwork.</Notes>
+      <Notes>A logo hides part of the code, so keep it small. The built-in tiles are simple generic glyphs, not official brand artwork.</Notes>
       <div className="tiles logo-tiles">
         <Tile selected={l.source === 'none'} label="None" onClick={() => set({ source: 'none' })} />
+        {original && <Tile selected={l.source === 'original'} label="From step 1" src={original.href} onClick={() => set({ source: 'original' })} />}
         {logo && <Tile selected={l.source === 'upload'} label="Your logo" src={logo.url} onClick={() => set({ source: 'upload' })} />}
         {BUILT_IN_LOGOS.map((b) => (
           <Tile key={b.id} selected={l.source === b.id} label={b.label} src={thumbLogo(b.id)} onClick={() => onPickBuiltIn(b.id, b.color)} />
         ))}
       </div>
       <ImageUpload logo={logo} error={logoError} notice={logoNotice} onSelect={onSelectLogo} onRemove={onRemoveLogo} />
-      <fieldset className="field">
-        <legend className="label">Error correction</legend>
-        <div className="segmented fill">
-          {(Object.keys(ECL_INFO) as ECL[]).map((k) => (
-            <label key={k} className={ecl === k ? 'seg stack on' : 'seg stack'}>
-              <input type="radio" name="studio-ecl" value={k} checked={ecl === k} onChange={() => onEcl(k)} />
-              <span className="seg-main">{k}</span>
-              <span className="seg-sub">{ECL_INFO[k].split(' – ')[1].split(' ')[0]}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div className="field">
+        <span className="label">Error correction</span>
+        <p className="hint">{ECL_INFO[ecl]}. This is set when the QR is generated in step 1.</p>
+        {l.source !== 'none' && lowEcl && onRaiseEcl && (
+          <button type="button" className="btn ghost small" onClick={() => onRaiseEcl('H')}>
+            Raise it to H (same data, regenerated in step 1)
+          </button>
+        )}
+      </div>
       {l.source !== 'none' && (
         <>
           <Slider label="Logo size" value={l.size} min={8} max={36} unit="%" onChange={(v) => set({ size: v })} />

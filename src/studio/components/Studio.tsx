@@ -1,28 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CircleCheck, CircleX, Download, Frame, Grid3x3, Image as ImageIcon, LayoutTemplate, Loader, Palette, ScanLine, Shapes, SquareDashed, TriangleAlert, Scan, Undo2, WandSparkles } from 'lucide-react';
-import { ContentInput } from '../../components/ContentInput';
-import type { Options } from '../../components/QRCustomization';
-import type { Logo } from '../../hooks/useLogo';
+import { ArrowLeft, ArrowRight, Frame, Grid3x3, Image as ImageIcon, LayoutTemplate, Palette, QrCode, Shapes, SquareDashed, TriangleAlert, Scan } from 'lucide-react';
+import { useLogo } from '../../hooks/useLogo';
 import { downloadBlob } from '../../lib/download';
-import type { ECL } from '../../lib/qr';
-import { MODE_LABELS, type BuildResult, type BuilderMode, type ContentMode, type Values } from '../../lib/payloads';
+import type { GeneratedQR } from '../../lib/generated';
+import { MODE_LABELS } from '../../lib/payloads';
+import { ECL_INFO, type ECL } from '../../lib/qr';
 import { sanitizeFilename } from '../../lib/validate';
 import { logoById } from '../data/logos';
 import { presetConfig, type Preset } from '../data/presets';
 import type { DecorationStore } from '../hooks/useDecoration';
 import { analyze } from '../lib/analyze';
-import { autofix, type FixResult, type FixState } from '../lib/autofix';
-import { decodeBoth, verdict, type DualDecode, type Verdict } from '../lib/decode';
+import { autofix, type FixState } from '../lib/autofix';
+import { decodeBoth, verdict } from '../lib/decode';
 import { EXPORT_FORMATS, MAX_EXPORT, MIN_EXPORT, exportDims, exportScene, renderToCanvas, type ExportFormat } from '../lib/export';
 import { logoToDataUrl } from '../lib/logoData';
-import { createMatrix } from '../lib/matrix';
 import { buildScene, type SceneInput, type SceneLogo } from '../lib/scene';
-import { Notes, Segmented, SelectField, Toggle } from './controls';
+import { FinalPanel, type FinalState } from './FinalPanel';
+import { FixSummary, ScanStatus, type Check, type FixReport } from './ScanParts';
 import { BordersPanel, ColorsPanel, CornersPanel, DecorationsPanel, FramesPanel, LogosPanel, ModulesPanel, TemplatesPanel } from './panels';
 import '../../styles/studio.css';
 
-const SAMPLE = 'https://example.com';
-type Cat = 'templates' | 'frames' | 'borders' | 'corners' | 'modules' | 'colors' | 'decor' | 'logos' | 'export';
+type Cat = 'templates' | 'frames' | 'borders' | 'corners' | 'modules' | 'colors' | 'decor' | 'logos';
 const NAV: { id: Cat; label: string; Icon: typeof Frame }[] = [
   { id: 'templates', label: 'Templates', Icon: LayoutTemplate },
   { id: 'frames', label: 'Frames', Icon: Frame },
@@ -32,94 +30,117 @@ const NAV: { id: Cat; label: string; Icon: typeof Frame }[] = [
   { id: 'colors', label: 'Colors', Icon: Palette },
   { id: 'decor', label: 'Decorations', Icon: Shapes },
   { id: 'logos', label: 'Logos', Icon: ImageIcon },
-  { id: 'export', label: 'Export', Icon: Download },
 ];
-type Check = { status: 'idle' } | { status: 'pending' } | { status: 'error' } | { status: 'done'; dual: DualDecode; verdict: Verdict };
-interface FixReport { result: FixResult; before: FixState }
+const ECL_RANK: Record<ECL, number> = { L: 0, M: 1, Q: 2, H: 3 };
 
 export interface StudioProps {
-  mode: ContentMode;
-  onMode: (m: ContentMode) => void;
-  text: string;
-  onText: (v: string) => void;
-  onClearText: () => void;
-  forms: Record<BuilderMode, Values>;
-  onForm: (mode: BuilderMode, key: string, value: string) => void;
-  built: BuildResult | null;
-  payload: string | null;
-  inputError: string | null;
-  options: Options;
-  onOptions: (p: Partial<Options>) => void;
-  logo: Logo | null;
-  logoError: string | null;
-  logoNotice: string;
-  onSelectLogo: (f: File) => void | Promise<void>;
-  onRemoveLogo: () => void;
+  /** The original QR from step 1. Null until one has been generated. */
+  generated: GeneratedQR | null;
+  /** The Generator has been edited since `generated` was made. */
+  generatorStale: boolean;
+  onBack: () => void;
+  /** Asks step 1 to regenerate the same data at a higher error correction level. */
+  onRaiseEcl: (ecl: ECL) => void;
+  canRaiseEcl: boolean;
   deco: DecorationStore;
 }
 
 export default function Studio(p: StudioProps) {
-  const { deco, options, onOptions, logo } = p;
+  if (!p.generated) return <NoQr onBack={p.onBack} />;
+  return <Decorator {...p} generated={p.generated} />;
+}
+
+function NoQr({ onBack }: { onBack: () => void }) {
+  return (
+    <section className="studio" aria-label="QR Decorator">
+      <div className="panel no-qr">
+        <QrCode size={44} strokeWidth={1.25} aria-hidden="true" />
+        <h2>Nothing to decorate yet</h2>
+        <p role="status">No QR code available. Please generate a QR code first.</p>
+        <button type="button" className="btn primary" onClick={onBack}>
+          <ArrowLeft size={16} aria-hidden="true" /> Go to the Generator
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function summarize(g: GeneratedQR): string {
+  if (g.mode === 'wifi') return 'Wi-Fi details are hidden';
+  const flat = g.payload.replace(/\s+/g, ' ');
+  return flat.length > 80 ? `${flat.slice(0, 80)}…` : flat;
+}
+
+function Decorator(p: StudioProps & { generated: GeneratedQR }) {
+  const { deco, generated } = p;
   const { cfg } = deco;
   const [cat, setCat] = useState<Cat>('templates');
   const [applied, setApplied] = useState<{ id: string; cfg: typeof cfg } | null>(null);
   const [transparent, setTransparent] = useState(false);
+  /** Colors chosen here. While null, the decorated QR uses the colors it was generated with. */
+  const [colors, setColors] = useState<{ fg: string; bg: string } | null>(null);
   const [format, setFormat] = useState<ExportFormat>('png');
-  const [sizeChoice, setSizeChoice] = useState(String([512, 1024, 2048, 4096].includes(options.size) ? options.size : 1024));
+  const [sizeChoice, setSizeChoice] = useState(String([512, 1024, 2048, 4096].includes(generated.size) ? generated.size : 1024));
   const [customSize, setCustomSize] = useState('1500');
   const [autoCheck, setAutoCheck] = useState(true);
   const [check, setCheck] = useState<Check>({ status: 'idle' });
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [contentOpen, setContentOpen] = useState(true);
   const [fixing, setFixing] = useState(false);
   const [fixReport, setFixReport] = useState<FixReport | null>(null);
+  const [final, setFinal] = useState<FinalState>({ status: 'idle' });
+  const [downloading, setDownloading] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [logoNotice, setLogoNotice] = useState('');
+  const { logo: ownLogo, error: ownLogoError, select: selectLogo, remove: removeLogo } = useLogo();
   const token = useRef(0);
+  const finalRef = useRef<HTMLElement | null>(null);
+  const finalButtonRef = useRef<HTMLButtonElement | null>(null);
 
+  const fg = colors?.fg ?? generated.fg;
+  const bg = colors?.bg ?? generated.bg;
+  const text = generated.payload;
   const exportSize = sizeChoice === 'custom' ? Math.min(MAX_EXPORT, Math.max(MIN_EXPORT, Math.round(Number(customSize)) || 1024)) : Number(sizeChoice);
-  const isSample = p.payload === null;
-  const text = p.payload ?? SAMPLE;
 
-  const matrix = useMemo(() => {
-    try {
-      return { m: createMatrix(text, options.ecl), error: null as string | null };
-    } catch {
-      return { m: null, error: 'This content is too long for the selected error correction level. Shorten it or lower the level.' };
-    }
-  }, [text, options.ecl]);
+  // Start from the QR that was generated. A different logo arriving from step 1 is adopted; a regeneration that
+  // carries the same logo (or none) leaves the choice made here alone.
+  const prevLogo = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const href = generated.logo?.href ?? null;
+    const prev = prevLogo.current;
+    if (href && href !== prev && (prev !== undefined || cfg.logo.source === 'none')) deco.update('logo', { source: 'original' });
+    else if (!href && cfg.logo.source === 'original') deco.update('logo', { source: 'none' });
+    prevLogo.current = href;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generated.id]);
 
-  const uploadHref = useMemo(() => (logo ? logoToDataUrl(logo.img) : null), [logo]);
+  const ownLogoHref = useMemo(() => (ownLogo ? logoToDataUrl(ownLogo.img) : null), [ownLogo]);
   const sceneLogo = useMemo<SceneLogo>(() => {
     const s = cfg.logo.source;
     if (s === 'none') return null;
-    if (s === 'upload') return logo && uploadHref ? { kind: 'image', href: uploadHref, aspect: logo.img.width / logo.img.height } : null;
+    if (s === 'original') return generated.logo ? { kind: 'image', href: generated.logo.href, aspect: generated.logo.aspect } : null;
+    if (s === 'upload') return ownLogo && ownLogoHref ? { kind: 'image', href: ownLogoHref, aspect: ownLogo.img.width / ownLogo.img.height } : null;
     return logoById(s) ? { kind: 'builtin', id: s } : null;
-  }, [cfg.logo.source, logo, uploadHref]);
+  }, [cfg.logo.source, generated.logo, ownLogo, ownLogoHref]);
 
-  const input = useMemo<SceneInput | null>(
-    () => (matrix.m ? { matrix: matrix.m, cfg, fg: options.fg, bg: options.bg, logo: sceneLogo, idPrefix: 'pv', transparent } : null),
-    [matrix.m, cfg, options.fg, options.bg, sceneLogo, transparent],
+  // The matrix comes from step 1; nothing here creates or edits QR data.
+  const input = useMemo<SceneInput>(
+    () => ({ matrix: generated.matrix, cfg, fg, bg, logo: sceneLogo, idPrefix: 'pv', transparent }),
+    [generated.matrix, cfg, fg, bg, sceneLogo, transparent],
   );
-  const scene = useMemo(() => (input ? buildScene(input) : null), [input]);
-  const advice = useMemo(
-    () => (scene ? analyze(cfg, options.fg, options.bg, options.ecl, scene.logoCoverage, !!sceneLogo, transparent) : []),
-    [scene, cfg, options.fg, options.bg, options.ecl, sceneLogo, transparent],
-  );
+  const scene = useMemo(() => buildScene(input), [input]);
+  const advice = useMemo(() => analyze(cfg, fg, bg, generated.ecl, scene.logoCoverage, !!sceneLogo, transparent), [cfg, fg, bg, generated.ecl, scene.logoCoverage, sceneLogo, transparent]);
 
   const runCheck = async (size: number): Promise<Check> => {
-    if (!input) return { status: 'idle' };
     try {
-      const canvas = await renderToCanvas(input, size, '#ffffff');
-      const dual = await decodeBoth(canvas, text);
+      const dual = await decodeBoth(await renderToCanvas(input, size, '#ffffff'), text);
       return { status: 'done', dual, verdict: verdict(dual) };
     } catch {
       return { status: 'error' };
     }
   };
 
-  // Optional automatic scan check, debounced so dragging a slider does not decode on every tick.
+  // Optional live scan check, debounced so dragging a slider does not decode on every tick.
   useEffect(() => {
-    if (!autoCheck || isSample || !input) {
+    if (!autoCheck) {
       setCheck({ status: 'idle' });
       return;
     }
@@ -131,7 +152,7 @@ export default function Studio(p: StudioProps) {
     }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene?.svg, autoCheck, isSample]);
+  }, [scene.svg, autoCheck]);
 
   const manualCheck = async () => {
     const id = ++token.current;
@@ -140,56 +161,31 @@ export default function Studio(p: StudioProps) {
     if (token.current === id) setCheck(r);
   };
 
-  const doExport = async () => {
-    if (!input || isSample) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      const blob = await exportScene(input, format, exportSize);
-      const ext = EXPORT_FORMATS.find((f) => f.id === format)?.ext ?? 'png';
-      const name = `${sanitizeFilename(options.filename).replace(/\.png$/, '')}.${ext}`;
-      downloadBlob(blob, name);
-      setMessage({ ok: true, text: `Download requested as ${name}. Check your browser's downloads.` });
-    } catch (e) {
-      setMessage({ ok: false, text: e instanceof Error ? e.message : 'The export failed. Try a smaller size.' });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const hasErrorAdvice = advice.some((a) => a.level === 'error');
-  const needsFix = !isSample && !!input && (hasErrorAdvice || advice.length > 0 || (check.status === 'done' && check.verdict !== 'ok'));
-
-  /** Renders a candidate design, decodes it with both decoders and applies the same advice rules as the live panel. */
+  // ---- Fix scannability (decoration settings only; error correction belongs to step 1) ----
+  const lowEcl = generated.ecl === 'L' || generated.ecl === 'M';
+  const needsFix = advice.length > 0 || (check.status === 'done' && check.verdict !== 'ok');
+  const currentState = (): FixState => ({ cfg, fg, bg, ecl: generated.ecl });
   const evaluateFix = async (st: FixState) => {
-    let matrixFor;
-    try {
-      matrixFor = createMatrix(text, st.ecl);
-    } catch {
-      return { pass: false, score: -100 }; // too long for this error correction level
-    }
-    const candidate: SceneInput = { matrix: matrixFor, cfg: st.cfg, fg: st.fg, bg: st.bg, logo: sceneLogo, idPrefix: 'fx', transparent };
-    const coverage = buildScene(candidate).logoCoverage;
-    const errors = analyze(st.cfg, st.fg, st.bg, st.ecl, coverage, !!sceneLogo, transparent).filter((a) => a.level === 'error').length;
+    const candidate: SceneInput = { matrix: generated.matrix, cfg: st.cfg, fg: st.fg, bg: st.bg, logo: sceneLogo, idPrefix: 'fx', transparent };
+    const errors = analyze(st.cfg, st.fg, st.bg, st.ecl, buildScene(candidate).logoCoverage, !!sceneLogo, transparent).filter((a) => a.level === 'error').length;
     const dual = await decodeBoth(await renderToCanvas(candidate, 1024, '#ffffff'), text);
     const okCount = [dual.jsqr.status, dual.zxing.status].filter((x) => x === 'ok' || x === 'unavailable').length;
     return { pass: verdict(dual) === 'ok' && errors === 0, score: okCount * 10 - errors * 4 };
   };
-
   const runFix = async () => {
-    if (!input || isSample) return;
     setFixing(true);
     setFixReport(null);
-    const before: FixState = { cfg, fg: options.fg, bg: options.bg, ecl: options.ecl };
+    const before = currentState();
+    const beforeColors = colors;
     try {
-      const result = await autofix(before, { matrix: (e) => createMatrix(text, e), logo: sceneLogo }, evaluateFix);
+      const result = await autofix(before, { matrix: () => generated.matrix, logo: sceneLogo }, evaluateFix);
       if (result.outcome === 'fixed' || result.outcome === 'improved') {
         deco.replace(result.state.cfg);
-        onOptions({ fg: result.state.fg, bg: result.state.bg, ecl: result.state.ecl });
+        setColors({ fg: result.state.fg, bg: result.state.bg });
       }
-      setFixReport({ result, before });
+      setFixReport({ result, before, beforeColors });
     } catch {
-      setFixReport({ result: { outcome: 'unfixed', state: before, applied: [], evaluation: { pass: false, score: 0 } }, before });
+      setFixReport({ result: { outcome: 'unfixed', state: before, applied: [], evaluation: { pass: false, score: 0 } }, before, beforeColors });
     } finally {
       setFixing(false);
     }
@@ -197,76 +193,117 @@ export default function Studio(p: StudioProps) {
   const undoFix = () => {
     if (!fixReport) return;
     deco.replace(fixReport.before.cfg);
-    onOptions({ fg: fixReport.before.fg, bg: fixReport.before.bg, ecl: fixReport.before.ecl });
+    setColors(fixReport.beforeColors);
     setFixReport(null);
   };
-  // The report only describes the design it produced; hide it as soon as anything else changes.
   const reportCurrent = fixReport && (fixReport.result.outcome === 'fixed' || fixReport.result.outcome === 'improved'
-    ? deco.cfg === fixReport.result.state.cfg && options.fg === fixReport.result.state.fg && options.bg === fixReport.result.state.bg && options.ecl === fixReport.result.state.ecl
-    : deco.cfg === fixReport.before.cfg && options.fg === fixReport.before.fg && options.bg === fixReport.before.bg && options.ecl === fixReport.before.ecl);
+    ? deco.cfg === fixReport.result.state.cfg && fg === fixReport.result.state.fg && bg === fixReport.result.state.bg
+    : deco.cfg === fixReport.before.cfg && fg === fixReport.before.fg && bg === fixReport.before.bg);
+
+  // ---- Final QR ----
+  const finalStale = final.status === 'ready' && final.svg !== scene.svg;
+  useEffect(() => {
+    if (final.status !== 'ready') return;
+    const url = final.url;
+    return () => URL.revokeObjectURL(url);
+  }, [final]);
+
+  const generateFinal = async () => {
+    if (final.status === 'loading') return;
+    const snapshot = input;
+    const svg = scene.svg;
+    setFinal({ status: 'loading' });
+    setMessage(null);
+    try {
+      const shown = await renderToCanvas(snapshot, 1024, null);
+      const blob = await new Promise<Blob>((resolve, reject) => shown.toBlob((b) => (b ? resolve(b) : reject(new Error('The preview image could not be created.'))), 'image/png'));
+      const checkSize = Math.min(exportSize, 2048);
+      const dual = await decodeBoth(await renderToCanvas(snapshot, checkSize, '#ffffff'), text);
+      setFinal({ status: 'ready', input: snapshot, svg, url: URL.createObjectURL(blob), width: shown.width, height: shown.height, check: { status: 'done', dual, verdict: verdict(dual) }, checkedAt: checkSize });
+    } catch (e) {
+      setFinal({ status: 'error', message: e instanceof Error ? e.message : 'The final QR could not be generated. Try again, or use a smaller size.' });
+    }
+  };
+
+  const doDownload = async () => {
+    if (final.status !== 'ready' || finalStale) return;
+    setDownloading(true);
+    setMessage(null);
+    try {
+      const blob = await exportScene(final.input, format, exportSize);
+      const ext = EXPORT_FORMATS.find((f) => f.id === format)?.ext ?? 'png';
+      const name = `${sanitizeFilename(generated.filename).replace(/\.png$/, '')}.${ext}`;
+      downloadBlob(blob, name);
+      setMessage({ ok: true, text: `Download requested as ${name}. Check your browser's downloads.` });
+    } catch (e) {
+      setMessage({ ok: false, text: e instanceof Error ? e.message : 'The export failed. Try a smaller size.' });
+    } finally {
+      setDownloading(false);
+    }
+  };
+  const goToFinal = () => {
+    finalRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    finalButtonRef.current?.focus({ preventScroll: true });
+  };
 
   const applyPreset = (pr: Preset) => {
     const next = presetConfig(pr);
     deco.replace(next);
     setApplied({ id: pr.id, cfg: next });
-    const ecl: ECL | undefined = pr.ecl ?? (next.logo.source !== 'none' && (options.ecl === 'L' || options.ecl === 'M') ? 'H' : undefined);
-    onOptions({ fg: pr.fg, bg: pr.bg, ...(ecl ? { ecl } : {}) });
+    setColors({ fg: pr.fg, bg: pr.bg });
   };
-  const pickBuiltIn = (id: string, color: string) => {
-    deco.update('logo', { source: id, bg: color });
-    if (options.ecl === 'L' || options.ecl === 'M') onOptions({ ecl: 'H' });
+  const pickBuiltIn = (id: string, color: string) => deco.update('logo', { source: id, bg: color });
+  const onUploadLogo = async (f: File) => {
+    const replacing = !!ownLogo;
+    if (await selectLogo(f)) {
+      deco.update('logo', { source: 'upload' });
+      setLogoNotice(replacing ? 'Logo replaced.' : 'Logo added.');
+    }
+  };
+  const onRemoveOwnLogo = () => {
+    removeLogo();
+    if (cfg.logo.source === 'upload') deco.update('logo', { source: 'none' });
+    setLogoNotice('Logo removed.');
   };
 
-  const dims = scene ? exportDims(scene.width, scene.height, exportSize) : null;
-  const canExport = !!input && !isSample && !busy;
+  const finalDims = exportDims(scene.width, scene.height, exportSize);
+  const raiseTarget: ECL = 'H';
+  const canRaise = p.canRaiseEcl && ECL_RANK[generated.ecl] < ECL_RANK[raiseTarget];
   const panel: Record<Cat, React.ReactNode> = {
-    templates: <TemplatesPanel activeId={applied && applied.cfg === cfg ? applied.id : null} onApply={applyPreset} onResetAll={deco.resetAll} />,
+    templates: <TemplatesPanel activeId={applied && applied.cfg === cfg ? applied.id : null} onApply={applyPreset} onResetAll={() => { deco.resetAll(); setColors(null); setTransparent(false); }} />,
     frames: <FramesPanel store={deco} />,
     borders: <BordersPanel cfg={cfg} update={deco.update} reset={deco.reset} />,
     corners: <CornersPanel cfg={cfg} update={deco.update} reset={deco.reset} />,
     modules: <ModulesPanel cfg={cfg} update={deco.update} reset={deco.reset} />,
-    colors: <ColorsPanel cfg={cfg} update={deco.update} reset={deco.reset} fg={options.fg} bg={options.bg} onColors={onOptions} />,
-    decor: <DecorationsPanel cfg={cfg} update={deco.update} reset={deco.reset} />,
-    export: (
-      <>
-        <div className="sec-head"><h3>Export</h3></div>
-        <Notes>The file is drawn from the same design you see in the preview, at the size you choose.</Notes>
-        <Segmented label="Format" value={format} options={EXPORT_FORMATS.map((f) => ({ value: f.id, label: f.label }))} onChange={setFormat} />
-        <SelectField label="Size (longest side)" value={sizeChoice} options={[{ value: '512', label: '512 px' }, { value: '1024', label: '1024 px' }, { value: '2048', label: '2048 px' }, { value: '4096', label: '4096 px' }, { value: 'custom', label: 'Custom' }]} onChange={setSizeChoice} />
-        {sizeChoice === 'custom' && (
-          <div className="field">
-            <label htmlFor="studio-custom">Custom size (px, {MIN_EXPORT} to {MAX_EXPORT})</label>
-            <input id="studio-custom" type="number" inputMode="numeric" min={MIN_EXPORT} max={MAX_EXPORT} value={customSize} onChange={(e) => setCustomSize(e.target.value)} />
-          </div>
-        )}
-        <Toggle label="Transparent background" checked={transparent} onChange={setTransparent} hint={format === 'jpeg' || format === 'pdf' ? 'JPEG and PDF fill transparent areas with white.' : 'Removes the frame and code backgrounds.'} />
-        {format === 'svg' && <p className="hint">SVG keeps frame text as live text, so it uses a common system font. Use PNG or PDF when the exact lettering matters.</p>}
-        {dims && <p className="hint">Output: {dims.width} × {dims.height} px.</p>}
-      </>
+    colors: (
+      <ColorsPanel cfg={cfg} update={deco.update} reset={deco.reset} fg={fg} bg={bg} onColors={(c) => setColors((o) => ({ fg, bg, ...(o ?? {}), ...c }))}
+        onResetColors={() => setColors(null)} transparent={transparent} onTransparent={setTransparent} />
     ),
+    decor: <DecorationsPanel cfg={cfg} update={deco.update} reset={deco.reset} />,
     logos: (
-      <LogosPanel cfg={cfg} update={deco.update} reset={deco.reset} logo={logo} logoError={p.logoError} logoNotice={p.logoNotice}
-        onSelectLogo={p.onSelectLogo} onRemoveLogo={p.onRemoveLogo} ecl={options.ecl} onEcl={(v) => onOptions({ ecl: v })} onPickBuiltIn={pickBuiltIn} />
+      <LogosPanel cfg={cfg} update={deco.update} reset={deco.reset} original={generated.logo} logo={ownLogo} logoError={ownLogoError} logoNotice={logoNotice}
+        onSelectLogo={onUploadLogo} onRemoveLogo={onRemoveOwnLogo} ecl={generated.ecl} onRaiseEcl={canRaise ? p.onRaiseEcl : undefined} onPickBuiltIn={pickBuiltIn} />
     ),
   };
 
   return (
-    <section className="studio" aria-label="QR Decoration Studio">
-      <div className="panel studio-content">
-        <div className="studio-content-head">
-          <h2 className="visually-hidden">Content</h2>
-          <div className="content-summary">
-            <strong>{MODE_LABELS[p.mode]}</strong>
-            <span className="hint">{p.mode === 'wifi' ? 'Wi-Fi details hidden' : isSample ? 'No content yet. A sample is shown.' : text.length > 70 ? `${text.slice(0, 70).replace(/\s+/g, ' ')}…` : text.replace(/\s+/g, ' ')}</span>
-          </div>
-          <button type="button" className="btn ghost small" aria-expanded={contentOpen} aria-controls="studio-content-body" onClick={() => setContentOpen((o) => !o)}>
-            {contentOpen ? 'Hide content' : 'Edit content'}
-          </button>
+    <section className="studio" aria-label="QR Decorator">
+      <div className="panel original-card">
+        <img src={generated.originalUrl} alt="The original QR code from step 1" width={72} height={72} />
+        <div className="original-text">
+          <p className="original-title"><strong>Your QR from step 1</strong> <span className="badge">{MODE_LABELS[generated.mode]}</span></p>
+          <p className="hint original-summary">{summarize(generated)}</p>
+          <p className="hint">Error correction {ECL_INFO[generated.ecl].replace(' – ', ', ')}. The content is locked here, and decorating never changes it.</p>
         </div>
-        <div id="studio-content-body" className="studio-content-body" hidden={!contentOpen}>
-          <ContentInput mode={p.mode} onMode={p.onMode} text={p.text} onText={p.onText} onClearText={p.onClearText} textError={p.inputError} forms={p.forms} onForm={p.onForm} built={p.built} />
-        </div>
+        <button type="button" className="btn ghost small" onClick={p.onBack}>
+          <ArrowLeft size={15} aria-hidden="true" /> Edit in step 1
+        </button>
       </div>
+      {p.generatorStale && (
+        <p className="msg warn" role="status">
+          The Generator has changed since this QR was made. You are still decorating the QR above. Go back and generate again to use the new content.
+        </p>
+      )}
 
       <div className="studio-grid">
         <nav className="studio-nav" aria-label="Decoration categories">
@@ -280,26 +317,26 @@ export default function Studio(p: StudioProps) {
         <div className={reportCurrent ? 'studio-stage has-report' : 'studio-stage'}>
           <div className="preview-pin">
             <div className={transparent ? 'studio-preview checker' : 'studio-preview'} aria-busy={check.status === 'pending'}>
-              {scene ? (
-                <div className="scene" role="img" aria-label="Decorated QR code preview" dangerouslySetInnerHTML={{ __html: scene.svg }} />
-              ) : (
-                <p className="msg error" role="alert">{matrix.error}</p>
-              )}
-              {isSample && <span className="sample-badge">Sample preview</span>}
+              <div className="scene" role="img" aria-label="Live preview of your decorated QR code" dangerouslySetInnerHTML={{ __html: scene.svg }} />
             </div>
-            <p className="hint stage-note">
-              {isSample ? 'Enter text or a URL above to export your own code. This sample shows the design.' : dims ? `Exports at ${dims.width} × ${dims.height} px.` : ''}
-            </p>
-            <ScanStatus check={check} disabled={isSample || !input} onCheck={manualCheck} auto={autoCheck} onAuto={setAutoCheck} size={exportSize}
-              showFix={needsFix} fixing={fixing} onFix={runFix} />
+            <p className="hint stage-note">Live preview. It updates as you change anything.</p>
+            <ScanStatus check={check} disabled={false} onCheck={manualCheck} auto={autoCheck} onAuto={setAutoCheck} size={exportSize} showFix={needsFix} fixing={fixing} onFix={runFix} />
             {reportCurrent && fixReport && <FixSummary report={fixReport} onUndo={undoFix} onDismiss={() => setFixReport(null)} />}
           </div>
-
-          <button type="button" className="btn primary wide" onClick={doExport} disabled={!canExport}>
-            {busy ? <Loader size={16} className="spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />} {busy ? 'Exporting…' : `Download ${EXPORT_FORMATS.find((f) => f.id === format)?.label}`}
+          <button type="button" className="link-btn export-link" onClick={goToFinal}>
+            Ready? Generate the final QR <ArrowRight size={13} aria-hidden="true" />
           </button>
-          <button type="button" className="link-btn export-link" onClick={() => setCat('export')}>Format, size and transparency</button>
-          {message && <p className={message.ok ? 'msg ok' : 'msg error'} role={message.ok ? 'status' : 'alert'}>{message.text}</p>}
+          {sceneLogo && lowEcl && (
+            <div className="ecl-note">
+              <p>
+                <TriangleAlert size={15} aria-hidden="true" /> This QR uses error correction {generated.ecl}. A logo works best with Q or H.
+              </p>
+              <button type="button" className="btn ghost small" disabled={!canRaise} onClick={() => p.onRaiseEcl(raiseTarget)}>
+                Raise to {raiseTarget} (same data, regenerated in step 1)
+              </button>
+              {!p.canRaiseEcl && <p className="hint">Fix the Generator first: it has changes that differ from this QR.</p>}
+            </div>
+          )}
           {advice.length > 0 && (
             <ul className="advice" aria-label="Scannability notes">
               {advice.map((a) => (
@@ -313,101 +350,12 @@ export default function Studio(p: StudioProps) {
 
         <div className="panel studio-controls">{panel[cat]}</div>
       </div>
+
+      <FinalPanel
+        panelRef={finalRef} buttonRef={finalButtonRef} state={final} stale={finalStale} canGenerate onGenerate={generateFinal} transparent={transparent}
+        format={format} onFormat={setFormat} sizeChoice={sizeChoice} onSizeChoice={setSizeChoice} customSize={customSize} onCustomSize={setCustomSize}
+        dims={finalDims} onDownload={doDownload} downloading={downloading} message={message}
+      />
     </section>
-  );
-}
-
-const DEC_NAMES = { jsqr: 'jsQR', zxing: 'ZXing' } as const;
-
-function ScanStatus({ check, disabled, onCheck, auto, onAuto, size, showFix, fixing, onFix }: {
-  check: Check; disabled: boolean; onCheck: () => void; auto: boolean; onAuto: (v: boolean) => void; size: number; showFix: boolean; fixing: boolean; onFix: () => void;
-}) {
-  let body: React.ReactNode;
-  let tone = 'idle';
-  let chips: React.ReactNode = null;
-  if (disabled) body = <span>Add content to run the scan check.</span>;
-  else if (check.status === 'pending') {
-    tone = 'pending';
-    body = <><Loader size={16} className="spin" aria-hidden="true" /> <span>Checking with two decoders…</span></>;
-  } else if (check.status === 'done') {
-    const { dual, verdict: v } = check;
-    const states = [['jsqr', dual.jsqr.status], ['zxing', dual.zxing.status]] as const;
-    chips = (
-      <ul className="dec-list" aria-label="Decoder results">
-        {states.map(([k, st]) => (
-          <li key={k} className={st === 'ok' ? 'dec ok' : st === 'unavailable' ? 'dec' : 'dec bad'}>
-            {DEC_NAMES[k]}: {st === 'ok' ? 'read it' : st === 'unavailable' ? 'not loaded' : st === 'mismatch' ? 'read different data' : 'could not read it'}
-          </li>
-        ))}
-      </ul>
-    );
-    const wrong = dual.jsqr.status === 'mismatch' || dual.zxing.status === 'mismatch';
-    if (v === 'ok') {
-      tone = 'ok';
-      body = <><CircleCheck size={16} aria-hidden="true" /> <span><strong>QR validation successful.</strong> {dual.zxing.status === 'unavailable' ? 'jsQR read this design back correctly.' : 'Two independent decoders (jsQR and ZXing) both read this design back correctly.'} Still test it with your own phone before printing; this is not a guarantee.</span></>;
-    } else if (v === 'partial') {
-      tone = 'warn';
-      body = <><TriangleAlert size={16} aria-hidden="true" /> <span><strong>Potential scannability warning.</strong> {wrong ? 'One decoder read different data than expected.' : 'Only one of the two decoders could read this design.'} Some phones may struggle with it. Simplify the design or use Fix scannability, and test on a phone.</span></>;
-    } else {
-      tone = 'fail';
-      body = <><CircleX size={16} aria-hidden="true" /> <span><strong>QR validation failed.</strong> {wrong ? 'A decoder read different data than expected.' : 'Neither decoder could read this design.'} Try square modules, higher contrast, a smaller logo or higher error correction, or use Fix scannability.</span></>;
-    }
-  } else if (check.status === 'error') {
-    tone = 'fail';
-    body = <><TriangleAlert size={16} aria-hidden="true" /> <span>The scan check could not run in this browser.</span></>;
-  } else body = <span>No scan check yet.</span>;
-  return (
-    <div className={`scan-status ${tone}`}>
-      <div className="scan-line" role="status" aria-live="polite">{body}</div>
-      {chips}
-      <div className="scan-actions">
-        <div className="scan-buttons">
-          {showFix && (
-            <button type="button" className="btn primary small" onClick={onFix} disabled={disabled || fixing || check.status === 'pending'}>
-              {fixing ? <Loader size={15} className="spin" aria-hidden="true" /> : <WandSparkles size={15} aria-hidden="true" />} {fixing ? 'Fixing…' : 'Fix scannability'}
-            </button>
-          )}
-          <button type="button" className="btn ghost small" onClick={onCheck} disabled={disabled || check.status === 'pending' || fixing}>
-            <ScanLine size={15} aria-hidden="true" /> Check at {size}px
-          </button>
-        </div>
-        <label className="auto-check"><input type="checkbox" checked={auto} onChange={(e) => onAuto(e.target.checked)} /> Check automatically</label>
-      </div>
-    </div>
-  );
-}
-
-function FixSummary({ report, onUndo, onDismiss }: { report: FixReport; onUndo: () => void; onDismiss: () => void }) {
-  const { outcome, applied } = report.result;
-  const changed = outcome === 'fixed' || outcome === 'improved';
-  const title =
-    outcome === 'fixed' ? 'Fixed. Both decoders now read this design.'
-    : outcome === 'improved' ? 'Improved, but not fully fixed. Test it on a phone before using it.'
-    : outcome === 'already-ok' ? 'Nothing to change. Both decoders already read this design.'
-    : 'I could not fix this automatically, so nothing was changed.';
-  return (
-    <div className={`fix-summary ${outcome}`} role="status">
-      <p><strong>{title}</strong></p>
-      {changed && (
-        <details className="fix-changes">
-          <summary>{applied.length} {applied.length === 1 ? 'change' : 'changes'} made</summary>
-          <ul>
-            {applied.map((a) => (
-              <li key={a}>{a}</li>
-            ))}
-          </ul>
-        </details>
-      )}
-      {outcome === 'unfixed' && <p className="hint">Your logo, frame and colors were left alone. Try a smaller logo, a plainer module shape, or higher contrast by hand.</p>}
-      {outcome === 'already-ok' && <p className="hint">Any notes below are advice only.</p>}
-      <div className="fix-actions">
-        {changed && (
-          <button type="button" className="btn ghost small" onClick={onUndo}>
-            <Undo2 size={15} aria-hidden="true" /> Undo changes
-          </button>
-        )}
-        <button type="button" className="link-btn" onClick={onDismiss}>Dismiss</button>
-      </div>
-    </div>
   );
 }

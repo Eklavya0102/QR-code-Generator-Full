@@ -42,13 +42,20 @@ describe('autofix', () => {
     expect(luminance(r.state.bg)).toBeGreaterThan(luminance('#555555'));
   });
 
-  it('raises error correction for a logo, then shrinks it', async () => {
+  it('shrinks the logo but never changes error correction (that belongs to the generated QR)', async () => {
     const start = state({ logo: { source: 'whatsapp', size: 40 } });
-    const r = await run(start, (s) => s.ecl === 'H' && s.cfg.logo.size < 40);
+    const r = await run(start, (s) => s.cfg.logo.size < 40);
     expect(r.outcome).toBe('fixed');
-    expect(r.state.ecl).toBe('H');
-    expect(r.state.cfg.logo.size).toBeLessThan(40);
+    expect(r.state.ecl).toBe('M');
     expect(r.state.cfg.logo.source).toBe('whatsapp'); // never removed
+  });
+
+  it('no step ever changes error correction', () => {
+    const rich = state({
+      logo: { source: 'whatsapp', size: 40, position: 'bottomRight' }, modules: { shape: 'dots', finder: 'modern', quietZone: 2, scale: 0.7 },
+      gradient: { enabled: true }, border: { style: 'neon' }, corners: { style: 'brackets' },
+    }, { fg: '#cccccc', bg: '#eeeeee', ecl: 'L' });
+    for (const step of FIX_STEPS) expect(step.apply(rich, ctx)?.ecl ?? 'L').toBe('L');
   });
 
   it('moves an off-center logo to the center', async () => {
